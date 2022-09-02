@@ -1,0 +1,12 @@
+{
+  "name": "clumsy-labrador",
+  "version": "0.0.0",
+  "description": "a place for playing",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@josh-brown/vector": "^4.2.0",
+    "clumsy-graphics": "^1.0.0",
+    "colormap": "^2.3.2"
+  }
+}
