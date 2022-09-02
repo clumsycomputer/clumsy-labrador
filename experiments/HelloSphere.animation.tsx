@@ -1,6 +1,7 @@
 import React from "react";
 import { AnimationModule } from "clumsy-graphics";
 import getColormap from "colormap";
+import { mat, vec } from "@josh-brown/vector";
 
 const SphereAnimationModule: AnimationModule = {
   moduleName: "Hello-Sphere",
@@ -33,146 +34,127 @@ async function getSphereAnimationFrameDescription(
     format: "hex",
     alpha: 1,
   });
-  const rotationAngle = ((2 * Math.PI) / frameCount) * frameIndex;
+  const { sphereTransformMatrix } = getSphereTransformMatrix({
+    rotationAngle: ((2 * Math.PI) / frameCount) * frameIndex,
+  });
+  const sphereLayerCount = frameCount;
+  const layerRadiusAngleStep = Math.PI / (sphereLayerCount - 1);
+  const layerPointCount = frameCount;
+  const layerPointAngleStep = (2 * Math.PI) / layerPointCount;
+  const spherePoints: Array<Array<number>> = [];
+  for (let layerIndex = 0; layerIndex < sphereLayerCount; layerIndex++) {
+    const layerRadius = 0.5 * Math.sin(layerRadiusAngleStep * layerIndex);
+    const layerDepth = 0.5 * Math.cos(layerRadiusAngleStep * layerIndex) + 0.75;
+    for (
+      let layerPointIndex = 0;
+      layerPointIndex < layerPointCount;
+      layerPointIndex++
+    ) {
+      const layerPointAngle = layerPointAngleStep * layerPointIndex;
+      spherePoints.push(
+        sphereTransformMatrix
+          .apply(
+            vec([
+              layerRadius * Math.cos(layerPointAngle),
+              layerRadius * Math.sin(layerPointAngle),
+              layerDepth,
+              1,
+              layerIndex,
+            ])
+          )
+          .toArray()
+      );
+    }
+  }
   const fieldOfViewAngle = (1.75 / 3) * Math.PI;
   const fieldOfViewScalar = 1 / Math.tan(fieldOfViewAngle / 2);
   const depthFar = 1;
   const depthNear = 0;
   const depthNormalizationScalar = depthFar / (depthFar - depthNear);
   const depthNormalizationThing = -1 * depthNormalizationScalar * depthNear;
-  const sphereLayerCount = 48;
-  const layerRadiusAngleStep = Math.PI / (sphereLayerCount - 1);
-  const layerPointCount = 48;
-  const layerPointAngleStep = (2 * Math.PI) / layerPointCount;
-  const spherePoints = new Array(sphereLayerCount)
-    .fill(undefined)
-    .map((_, layerIndex) => {
-      const layerRadius = 0.5 * Math.sin(layerRadiusAngleStep * layerIndex);
-      const layerDepth =
-        0.5 * Math.cos(layerRadiusAngleStep * layerIndex) + 0.75;
-      const layerColor = rainbowColormap[layerIndex];
-      return (
-        new Array(layerPointCount)
-          .fill(undefined)
-          .map((_, layerPointIndex) => {
-            const layerPointAngle = layerPointAngleStep * layerPointIndex;
-            return [
-              layerRadius * Math.cos(layerPointAngle),
-              layerRadius * Math.sin(layerPointAngle),
-              layerDepth,
-            ];
-          })
-          .map((somePoint) => {
-            return [somePoint[0], somePoint[1], somePoint[2] - 0.75];
-          })
-          // .map((somePoint) => {
-          //   return [
-          //     somePoint[0],
-          //     Math.cos(rotationAngle) * somePoint[1] +
-          //       -1 * Math.sin(rotationAngle) * somePoint[2],
-          //     Math.sin(rotationAngle) * somePoint[1] +
-          //       Math.cos(rotationAngle) * somePoint[2],
-          //   ];
-          // })
-          .map((somePoint) => {
-            return [
-              Math.cos(rotationAngle) * somePoint[0] +
-                -1 * Math.sin(rotationAngle) * somePoint[2],
-              somePoint[1],
-              Math.sin(rotationAngle) * somePoint[0] +
-                Math.cos(rotationAngle) * somePoint[2],
-            ];
-          })
-          .map((somePoint) => {
-            return [
-              Math.cos(rotationAngle) * somePoint[0] +
-                -1 * Math.sin(rotationAngle) * somePoint[1],
-              Math.sin(rotationAngle) * somePoint[0] +
-                Math.cos(rotationAngle) * somePoint[1],
-              somePoint[2],
-            ];
-          })
-          .map((somePoint) => {
-            return [somePoint[0], somePoint[1], somePoint[2] + 0.75];
-          })
-          // .map((somePoint) => {
-          //   return [somePoint[0], somePoint[1], somePoint[2] - 0.75];
-          // })
-          // .map((somePoint) => {
-          //   return [
-          //     somePoint[0],
-          //     Math.cos(rotationAngle) * somePoint[1] +
-          //       -1 * Math.sin(rotationAngle) * somePoint[2],
-          //     Math.sin(rotationAngle) * somePoint[1] +
-          //       Math.cos(rotationAngle) * somePoint[2],
-          //   ];
-          // })
-          // .map((somePoint) => {
-          //   return [somePoint[0], somePoint[1], somePoint[2] + 0.75];
-          // })
-          .map((someSpherePoint) => {
-            const sphereCellLength = 0.02;
-            const halfSphereCellLength = sphereCellLength / 2;
-            const unadjustedCellDepth = someSpherePoint[2];
-            return {
-              cellColor: layerColor,
-              unadjustedCellDepth,
-              adjustedCellDepth:
-                (depthNormalizationScalar * unadjustedCellDepth +
-                  depthNormalizationThing) /
-                unadjustedCellDepth,
-              cellPoints: [
-                [
-                  someSpherePoint[0] - halfSphereCellLength,
-                  someSpherePoint[1] - halfSphereCellLength,
-                ],
-                [
-                  someSpherePoint[0] + halfSphereCellLength,
-                  someSpherePoint[1] - halfSphereCellLength,
-                ],
-                [
-                  someSpherePoint[0] + halfSphereCellLength,
-                  someSpherePoint[1] + halfSphereCellLength,
-                ],
-                [
-                  someSpherePoint[0] - halfSphereCellLength,
-                  someSpherePoint[1] + halfSphereCellLength,
-                ],
-              ].map((somePoint) => {
-                return [
-                  (fieldOfViewScalar * somePoint[0]) / unadjustedCellDepth,
-                  (fieldOfViewScalar * somePoint[1]) / unadjustedCellDepth,
-                ];
-              }),
-            };
-          })
-      );
-    })
-    .flat()
-    .sort((a, b) => b.unadjustedCellDepth - a.unadjustedCellDepth);
   return (
     <svg viewBox={`-1.25 -1.25 2.5 2.5`}>
       <rect x={-1.25} y={-1.25} width={2.5} height={2.5} fill={"black"} />
-      {spherePoints.map((someSpherePointData) => {
-        return (
-          <polygon
-            points={someSpherePointData.cellPoints
-              .map((somePoint) => `${somePoint[0]},${somePoint[1]}`)
-              .join(",")}
-            fill={colorShade(
-              someSpherePointData.cellColor,
-              -1 *
-                Math.floor(
-                  (someSpherePointData.unadjustedCellDepth /
-                    someSpherePointData.adjustedCellDepth) *
-                    100
-                )
-            )}
-          />
-        );
-      })}
+      {spherePoints
+        .sort((a, b) => b[2] - a[2])
+        .map((someSpherePoint) => {
+          const cellLength = 0.02;
+          const adjustedCellLength =
+            (fieldOfViewScalar * cellLength) / someSpherePoint[2];
+          const halfAdjustedCellLength = adjustedCellLength / 2;
+          const adjustedX =
+            (fieldOfViewScalar * someSpherePoint[0]) / someSpherePoint[2];
+          const adjustedY =
+            (fieldOfViewScalar * someSpherePoint[1]) / someSpherePoint[2];
+          const adjustedZ =
+            (depthNormalizationScalar * someSpherePoint[2] +
+              depthNormalizationThing) /
+            someSpherePoint[2];
+          return (
+            <rect
+              x={adjustedX - halfAdjustedCellLength}
+              y={adjustedY - halfAdjustedCellLength}
+              width={adjustedCellLength}
+              height={adjustedCellLength}
+              fill={colorShade(
+                rainbowColormap[(someSpherePoint[4] + frameIndex) % frameCount],
+                -1 * Math.floor((someSpherePoint[2] / adjustedZ) * 100)
+              )}
+            />
+          );
+        })}
     </svg>
   );
+}
+
+interface GetSphereTransformMatrixApi {
+  rotationAngle: number;
+}
+
+function getSphereTransformMatrix(api: GetSphereTransformMatrixApi) {
+  const { rotationAngle } = api;
+  const translatePointsToZ = mat([
+    [1, 0, 0, 0, 0],
+    [0, 1, 0, 0, 0],
+    [0, 0, 1, -0.75, 0],
+    [0, 0, 0, 1, 0],
+    [0, 0, 0, 0, 1],
+  ]);
+  const rotatePointsOverX = mat([
+    [1, 0, 0, 0, 0],
+    [0, Math.cos(rotationAngle), -Math.sin(rotationAngle), 0, 0],
+    [0, Math.sin(rotationAngle), Math.cos(rotationAngle), 0, 0],
+    [0, 0, 0, 1, 0],
+    [0, 0, 0, 0, 1],
+  ]);
+  const rotatePointsOverY = mat([
+    [Math.cos(rotationAngle), 0, -Math.sin(rotationAngle), 0, 0],
+    [0, 1, 0, 0, 0],
+    [Math.sin(rotationAngle), 0, Math.cos(rotationAngle), 0, 0],
+    [0, 0, 0, 1, 0],
+    [0, 0, 0, 0, 1],
+  ]);
+  const rotatePointsOverZ = mat([
+    [Math.cos(rotationAngle), -Math.sin(rotationAngle), 0, 0, 0],
+    [Math.sin(rotationAngle), Math.cos(rotationAngle), 0, 0, 0],
+    [0, 0, 1, 0, 0],
+    [0, 0, 0, 1, 0],
+    [0, 0, 0, 0, 1],
+  ]);
+  const translatePointsFromZ = mat([
+    [1, 0, 0, 0, 0],
+    [0, 1, 0, 0, 0],
+    [0, 0, 1, 0.75, 0],
+    [0, 0, 0, 1, 0],
+    [0, 0, 0, 0, 1],
+  ]);
+  return {
+    sphereTransformMatrix: translatePointsFromZ
+      .multiply(rotatePointsOverY)
+      .multiply(rotatePointsOverZ)
+      .multiply(rotatePointsOverX)
+      .multiply(translatePointsToZ),
+  };
 }
 
 // https://stackoverflow.com/a/62640342
