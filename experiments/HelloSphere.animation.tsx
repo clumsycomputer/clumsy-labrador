@@ -50,16 +50,6 @@ async function getSphereAnimationFrameDescription(
           structureType: "terminal",
           rhythmDensity: 17,
           rhythmOrientation: 0,
-          // subStructure: {
-          //   structureType: "interposed",
-          //   rhythmDensity: 11,
-          //   rhythmOrientation: 0,
-          //   subStructure: {
-          //     structureType: "terminal",
-          //     rhythmDensity: 7,
-          //     rhythmOrientation: 0,
-          //   },
-          // },
         },
       },
     },
@@ -71,9 +61,10 @@ async function getSphereAnimationFrameDescription(
     format: "hex",
     alpha: 1,
   });
-  const { sphereTransformMatrix } = getSphereTransformMatrix({
-    rotationAngle: ((2 * Math.PI) / frameCount) * frameIndex,
-  });
+  const { sphereTransformMatrixA, sphereTransformMatrixB } =
+    getSphereTransformMatrix({
+      rotationAngle: ((2 * Math.PI) / frameCount) * frameIndex,
+    });
   const sphereLayerCount = frameCount;
   const layerRadiusAngleStep = Math.PI / (sphereLayerCount - 1);
   const layerPointCount = frameCount;
@@ -100,17 +91,6 @@ async function getSphereAnimationFrameDescription(
                   structureType: "terminal",
                   rhythmDensity: 17,
                   rhythmOrientation: ((layerIndex % 61) % 29) % 17,
-                  // subStructure: {
-                  //   structureType: "interposed",
-                  //   rhythmDensity: 11,
-                  //   rhythmOrientation: (((layerIndex % 61) % 29) % 17) % 11,
-                  //   subStructure: {
-                  //     structureType: "terminal",
-                  //     rhythmDensity: 7,
-                  //     rhythmOrientation:
-                  //       ((((layerIndex % 61) % 29) % 17) % 11) % 7,
-                  //   },
-                  // },
                 },
               },
             },
@@ -128,7 +108,7 @@ async function getSphereAnimationFrameDescription(
       const pointRadius = layerRhythmSlotWeights[layerPointIndex]! / 17;
       const layerPointAngle = layerPointAngleStep * layerPointIndex;
       spherePoints.push(
-        sphereTransformMatrix
+        sphereTransformMatrixA
           .mmul(
             Matrix.columnVector([
               pointRadius *
@@ -144,8 +124,42 @@ async function getSphereAnimationFrameDescription(
           )
           .to1DArray()
       );
+      // spherePoints.push(
+      //   sphereTransformMatrixA
+      //     .mmul(
+      //       Matrix.columnVector([
+      //         pointRadius *
+      //           layerRadius *
+      //           Math.cos(2 * Math.PI - layerPointAngle + Math.PI / 2),
+      //         pointRadius *
+      //           layerRadius *
+      //           Math.sin(2 * Math.PI - layerPointAngle + Math.PI / 2),
+      //         layerDepth,
+      //         1,
+      //         layerIndex,
+      //       ])
+      //     )
+      //     .to1DArray()
+      // );
+      // spherePoints.push(
+      //   sphereTransformMatrixB
+      //     .mmul(
+      //       Matrix.columnVector([
+      //         pointRadius *
+      //           layerRadius *
+      //           Math.cos(layerPointAngle + Math.PI / 2),
+      //         pointRadius *
+      //           layerRadius *
+      //           Math.sin(layerPointAngle + Math.PI / 2),
+      //         layerDepth,
+      //         1,
+      //         layerIndex,
+      //       ])
+      //     )
+      //     .to1DArray()
+      // );
       spherePoints.push(
-        sphereTransformMatrix
+        sphereTransformMatrixB
           .mmul(
             Matrix.columnVector([
               pointRadius *
@@ -228,10 +242,30 @@ function getSphereTransformMatrix(api: GetSphereTransformMatrixApi) {
     .set(0, 1, -Math.sin(rotationAngle))
     .set(1, 0, Math.sin(rotationAngle))
     .set(1, 1, Math.cos(rotationAngle));
+  const rotatePointsOverX_B = Matrix.eye(5, 5)
+    .set(1, 1, Math.cos(-rotationAngle))
+    .set(1, 2, -Math.sin(-rotationAngle))
+    .set(2, 1, Math.sin(-rotationAngle))
+    .set(2, 2, Math.cos(-rotationAngle));
+  const rotatePointsOverY_B = Matrix.eye(5, 5)
+    .set(0, 0, Math.cos(-rotationAngle))
+    .set(0, 2, -Math.sin(-rotationAngle))
+    .set(2, 0, Math.sin(-rotationAngle))
+    .set(2, 2, Math.cos(-rotationAngle));
+  const rotatePointsOverZ_B = Matrix.eye(5, 5)
+    .set(0, 0, Math.cos(-rotationAngle))
+    .set(0, 1, -Math.sin(-rotationAngle))
+    .set(1, 0, Math.sin(-rotationAngle))
+    .set(1, 1, Math.cos(-rotationAngle));
   return {
-    sphereTransformMatrix: translatePointsFromZ
-      // .mmul(rotatePointsOverY)
-      // .mmul(rotatePointsOverZ)
+    sphereTransformMatrixA: translatePointsFromZ
+      .mmul(rotatePointsOverY)
+      .mmul(rotatePointsOverZ)
+      .mmul(rotatePointsOverX)
+      .mmul(translatePointsToZ),
+    sphereTransformMatrixB: translatePointsFromZ
+      .mmul(rotatePointsOverY_B)
+      .mmul(rotatePointsOverZ_B)
       .mmul(rotatePointsOverX)
       .mmul(translatePointsToZ),
   };
