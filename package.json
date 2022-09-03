@@ -5,8 +5,9 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "@josh-brown/vector": "^4.2.0",
     "clumsy-graphics": "^1.0.0",
-    "colormap": "^2.3.2"
+    "clumsy-math": "^2.0.0",
+    "colormap": "^2.3.2",
+    "ml-matrix": "^6.10.2"
   }
 }
