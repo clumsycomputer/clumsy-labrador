@@ -7,6 +7,7 @@
   "dependencies": {
     "clumsy-graphics": "^1.0.0",
     "clumsy-math": "^2.0.0",
+    "color": "^4.2.3",
     "colormap": "^2.3.2",
     "ml-matrix": "^6.10.2"
   }

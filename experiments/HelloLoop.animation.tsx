@@ -1,450 +1,169 @@
 import { AnimationModule } from "clumsy-graphics";
-import React from "react";
+import Matrix from "ml-matrix";
+import React, { ReactNode } from "react";
+import Color from "color";
 
-const LoopAnimationModule: AnimationModule = {
+const HelloLoopAnimationModule: AnimationModule = {
   moduleName: "Hello-Loop",
-  frameCount: 128,
-  getFrameDescription: getLoopAnimationFrameDescription,
+  getFrameDescription: getLoopFrameDescription,
+  frameCount: 32,
   frameSize: {
-    width: 512 * 2,
-    height: 512 * 2,
+    width: 1024,
+    height: 1024,
   },
   animationSettings: {
-    frameRate: 12,
+    frameRate: 9,
     constantRateFactor: 1,
   },
 };
 
-export default LoopAnimationModule;
+export default HelloLoopAnimationModule;
 
-interface GetLoopAnimationFrameDescriptionApi {
+interface GetLoopFrameDescriptionApi {
   frameCount: number;
   frameIndex: number;
 }
 
-async function getLoopAnimationFrameDescription(
-  props: GetLoopAnimationFrameDescriptionApi
-) {
-  const { frameIndex, frameCount } = props;
-  const frameStamp = frameIndex / frameCount;
-  const baseCircle = {
-    radius: 1,
-    center: {
-      x: 0,
-      y: 0,
-    },
-  };
-  const relativeSubCircle = {
-    radius: 1 - 0.5,
-    depth: 0.5,
-    phase: Math.PI / 3,
-  };
-  const subCircleRadius = relativeSubCircle.radius * baseCircle.radius;
-  const maxSubCircleDepth = baseCircle.radius - subCircleRadius;
-  const subCircleDepth = relativeSubCircle.depth * maxSubCircleDepth;
-  const subCircle = {
-    radius: subCircleRadius,
-    center: {
-      x:
-        subCircleDepth * Math.cos(relativeSubCircle.phase) +
-        baseCircle.center.x,
-      y:
-        subCircleDepth * Math.sin(relativeSubCircle.phase) +
-        baseCircle.center.y,
-    },
-  };
-  const baseSubCenterDistance = getDistanceBetweenPoints({
-    pointA: baseCircle.center,
-    pointB: subCircle.center,
-  });
-  const subBaseMinBasePoint = getCirclePoint({
-    someCircle: baseCircle,
-    pointAngle: relativeSubCircle.phase,
-  });
-  const subBaseMinSubPoint = getCirclePoint({
-    someCircle: subCircle,
-    pointAngle: relativeSubCircle.phase,
-  });
-  const subBaseMinDistance = getDistanceBetweenPoints({
-    pointA: subBaseMinBasePoint,
-    pointB: subBaseMinSubPoint,
-  });
-  const minIntersectionRadius = subBaseMinDistance + subCircle.radius;
-  const subBaseMaxBasePoint = getCirclePoint({
-    someCircle: baseCircle,
-    pointAngle: relativeSubCircle.phase + Math.PI,
-  });
-  const subBaseMaxSubPoint = getCirclePoint({
-    someCircle: subCircle,
-    pointAngle: relativeSubCircle.phase + Math.PI,
-  });
-  const subBaseMaxDistance = getDistanceBetweenPoints({
-    pointA: subBaseMaxBasePoint,
-    pointB: subBaseMaxSubPoint,
-  });
-  const maxIntersectionRadius = subBaseMaxDistance + subCircle.radius;
-  const intersectionRadiusMinMaxDelta =
-    maxIntersectionRadius - minIntersectionRadius;
-  const intersectionCircleCount = 256;
-  const loopPoints = new Array(intersectionCircleCount - 2)
-    .fill(null)
-    .reduce<Array<any>>(
-      (loopPointsResult, _, circleIndex) => {
-        const intersectionCircle = getIntersectionCircle({
-          minIntersectionRadius,
-          intersectionRadiusMinMaxDelta,
-          subCircleCenter: subCircle.center,
-          relativeIntersectionRadius:
-            (circleIndex + 1) / intersectionCircleCount,
-        });
-        const intersectionBaseAngle = getIntersectionBaseAngle({
-          baseSubCenterDistance,
-          baseCircleRadius: baseCircle.radius,
-          intersectionCircleRadius: intersectionCircle.radius,
-        });
-        const loopPointA = getLoopPoint({
-          subCircle,
-          intersectionCircle,
-          intersectionAngle:
-            Math.PI + relativeSubCircle.phase - intersectionBaseAngle,
-        });
-        const loopPointB = getLoopPoint({
-          subCircle,
-          intersectionCircle,
-          intersectionAngle:
-            Math.PI + relativeSubCircle.phase + intersectionBaseAngle,
-        });
-        loopPointsResult.unshift(loopPointA);
-        loopPointsResult.push(loopPointB);
-        return loopPointsResult;
-      },
-      [
-        getLoopPoint({
-          subCircle,
-          intersectionCircle: {
-            radius: minIntersectionRadius,
-            center: subCircle.center,
-          },
-          intersectionAngle: relativeSubCircle.phase,
-        }),
-      ]
-    );
-  loopPoints.push(
-    getLoopPoint({
-      subCircle,
-      intersectionCircle: {
-        radius: maxIntersectionRadius,
-        center: subCircle.center,
-      },
-      intersectionAngle: relativeSubCircle.phase + Math.PI,
-    })
+async function getLoopFrameDescription(api: GetLoopFrameDescriptionApi) {
+  const { frameCount, frameIndex } = api;
+  const { modelSpherePoints } = getModelSpherePoints();
+  const rotationAngle = ((2 * Math.PI) / frameCount) * frameIndex;
+  const worldTransformMatrix = Matrix.eye(5, 5)
+    .set(1, 1, Math.cos(rotationAngle))
+    .set(1, 2, -Math.sin(rotationAngle))
+    .set(2, 1, Math.sin(rotationAngle))
+    .set(2, 2, Math.cos(rotationAngle));
+  const cameraTransformMatrix = Matrix.eye(5, 5).set(2, 3, -1.5);
+  const { perspectiveTransformMatrix } = getPerspectiveTransformMatrix();
+  const targetTransformMatrix = perspectiveTransformMatrix
+    .mmul(cameraTransformMatrix)
+    .mmul(worldTransformMatrix);
+  const targetSpherePoints = modelSpherePoints.map((someModelSpherePoint) =>
+    targetTransformMatrix
+      .mmul(Matrix.columnVector(someModelSpherePoint))
+      .to1DArray()
   );
-  loopPoints.sort((a, b) => a.outputAngle - b.outputAngle);
-  const traceIntersectionCircle = getIntersectionCircle({
-    minIntersectionRadius,
-    intersectionRadiusMinMaxDelta,
-    subCircleCenter: subCircle.center,
-    relativeIntersectionRadius: Math.abs(((2 * frameStamp + 1) % 2) - 1),
-  });
-  const traceIntersectionAngleBase = getIntersectionBaseAngle({
-    baseSubCenterDistance,
-    baseCircleRadius: baseCircle.radius,
-    intersectionCircleRadius: traceIntersectionCircle.radius,
-  });
-  const traceIntersectionAngleA =
-    Math.PI + relativeSubCircle.phase - traceIntersectionAngleBase;
-  const traceIntersectionPointA = getCirclePoint({
-    someCircle: traceIntersectionCircle,
-    pointAngle: traceIntersectionAngleA,
-  });
-  const traceSubPointA = getCirclePoint({
-    someCircle: subCircle,
-    pointAngle: traceIntersectionAngleA,
-  });
-  const traceLoopPointA = {
-    x: traceIntersectionPointA.x,
-    y: traceSubPointA.y,
-  };
-  const inputTraceLoopPointA = getLoopTracePoint({
-    baseCircle,
-    subCircle,
-    loopPoints,
-    traceAngle: traceIntersectionAngleA,
-  });
-  const traceIntersectionAngleB = getNormalizedAngle({
-    someAngle: Math.PI + relativeSubCircle.phase + traceIntersectionAngleBase,
-  });
-  const intersectionPointB = getCirclePoint({
-    someCircle: traceIntersectionCircle,
-    pointAngle: traceIntersectionAngleB,
-  });
-  const traceSubPointB = getCirclePoint({
-    someCircle: subCircle,
-    pointAngle: traceIntersectionAngleB,
-  });
-  const traceLoopPointB = {
-    x: intersectionPointB.x,
-    y: traceSubPointB.y,
-  };
-  const inputTraceLoopPointB = getLoopTracePoint({
-    baseCircle,
-    subCircle,
-    loopPoints,
-    traceAngle: traceIntersectionAngleB,
-  });
   return (
-    <svg viewBox={"-1.5 -1.5 3 3"} width={250} height={250}>
-      <rect x={-1.5} y={-1.5} width={3} height={3} fill={"grey"} />
-      <circle
-        r={baseCircle.radius}
-        cx={baseCircle.center.x}
-        cy={baseCircle.center.y}
-        fillOpacity={0}
-        stroke={"darkorange"}
-        strokeWidth={0.04}
-      />
-      <circle
-        r={subCircle.radius}
-        cx={subCircle.center.x}
-        cy={subCircle.center.y}
-        fillOpacity={0}
-        stroke={"deeppink"}
-        strokeWidth={0.04}
-      />
-      <circle
-        r={traceIntersectionCircle.radius}
-        cx={traceIntersectionCircle.center.x}
-        cy={traceIntersectionCircle.center.y}
-        fillOpacity={0}
-        stroke={"deepskyblue"}
-        strokeWidth={0.04}
-      />
-      <polygon
-        points={loopPoints
-          .map((somePoint) => `${somePoint.x},${somePoint.y}`)
-          .join(" ")}
-        fillOpacity={0}
-        stroke={"yellow"}
-        strokeWidth={0.04}
-      />
-      <circle
-        cx={traceIntersectionPointA.x}
-        cy={traceIntersectionPointA.y}
-        r={0.05}
-        fill={"lime"}
-      />
-      <circle
-        cx={traceSubPointA.x}
-        cy={traceSubPointA.y}
-        r={0.05}
-        fill={"lime"}
-      />
-      <circle
-        cx={intersectionPointB.x}
-        cy={intersectionPointB.y}
-        r={0.05}
-        fill={"lime"}
-      />
-      <circle
-        cx={traceSubPointB.x}
-        cy={traceSubPointB.y}
-        r={0.05}
-        fill={"lime"}
-      />
-      <circle
-        cx={traceLoopPointA.x}
-        cy={traceLoopPointA.y}
-        r={0.05}
-        fill={"black"}
-      />
-      <circle
-        cx={traceLoopPointB.x}
-        cy={traceLoopPointB.y}
-        r={0.05}
-        fill={"black"}
-      />
-      <circle
-        cx={inputTraceLoopPointA.x}
-        cy={inputTraceLoopPointA.y}
-        r={0.05}
-        fill={"white"}
-      />
-      <circle
-        cx={inputTraceLoopPointB.x}
-        cy={inputTraceLoopPointB.y}
-        r={0.05}
-        fill={"white"}
-      />
-    </svg>
+    <Graphic
+      graphicRectangle={{
+        x: -1.25,
+        y: -1.25,
+        width: 2.5,
+        height: 2.5,
+      }}
+    >
+      {targetSpherePoints
+        .sort((a, b) => a[2] - b[2])
+        .map((someTargetSpherePoint) => {
+          const graphicRectSize =
+            someTargetSpherePoint[4] / someTargetSpherePoint[3];
+          const halfGraphicRectSize = graphicRectSize / 2;
+          return (
+            <rect
+              x={
+                someTargetSpherePoint[0] / someTargetSpherePoint[3] -
+                halfGraphicRectSize
+              }
+              y={
+                someTargetSpherePoint[1] / someTargetSpherePoint[3] -
+                halfGraphicRectSize
+              }
+              width={graphicRectSize}
+              height={graphicRectSize}
+              fill={new Color("yellow").lighten(someTargetSpherePoint[2] / 4)}
+            />
+          );
+        })}
+    </Graphic>
   );
 }
 
-interface GetLoopTracePointApi {
-  baseCircle: Circle;
-  subCircle: Circle;
-  loopPoints: Array<any>;
-  traceAngle: number;
+type SpherePoint = [
+  x: number,
+  y: number,
+  z: number,
+  w: number,
+  rectSize: number
+];
+
+function getModelSpherePoints(): { modelSpherePoints: Array<SpherePoint> } {
+  const modelSpherePoints: Array<SpherePoint> = [];
+  const sliceCount = 48;
+  const sliceStep = Math.PI / (sliceCount - 1);
+  const slicePointCount = 48;
+  const slicePointStep = (2 * Math.PI) / slicePointCount;
+  for (let sliceIndex = 0; sliceIndex < sliceCount; sliceIndex++) {
+    const sliceDepth = Math.cos(sliceIndex * sliceStep);
+    const sliceRadius = Math.sin(sliceIndex * sliceStep);
+    for (
+      let slicePointIndex = 0;
+      slicePointIndex < slicePointCount;
+      slicePointIndex++
+    ) {
+      modelSpherePoints.push([
+        sliceRadius * Math.cos(slicePointIndex * slicePointStep),
+        sliceRadius * Math.sin(slicePointIndex * slicePointStep),
+        sliceDepth,
+        1,
+        0.02,
+      ]);
+    }
+  }
+  // modelSpherePoints.push([0, 1, 0, 1, 0.05]);
+  return { modelSpherePoints };
 }
 
-function getLoopTracePoint(api: GetLoopTracePointApi) {
-  const { loopPoints, traceAngle, subCircle, baseCircle } = api;
-  const loopPointIndexA = loopPoints.findIndex((_, loopPointIndex) => {
-    if (loopPointIndex + 1 === loopPoints.length) return false;
-    const loopPointA = loopPoints[loopPointIndex];
-    const loopPointB = loopPoints[loopPointIndex + 1];
-    return (
-      traceAngle >= loopPointA.outputAngle &&
-      traceAngle <= loopPointB.outputAngle
+function getPerspectiveTransformMatrix() {
+  const aspectRatio = 1;
+  const verticalFieldOfViewAngle = (1.75 / 3) * Math.PI;
+  // const verticalFieldOfViewAngle = (1 / 2) * Math.PI;
+  const verticalFieldOfViewScalar = 1 / Math.tan(verticalFieldOfViewAngle / 2);
+  const depthFar = 3.25;
+  const depthNear = 0.75;
+  // const depthNormalizationScalar = depthFar / (depthFar - depthNear);
+  // const depthNormalizationThing = -1 * depthNormalizationScalar * depthNear;
+  const perspectiveTransformMatrix = Matrix.zeros(5, 5)
+    .set(0, 0, verticalFieldOfViewScalar / aspectRatio)
+    .set(1, 1, verticalFieldOfViewScalar)
+    .set(2, 2, -((depthFar + depthNear) / (depthNear - depthFar)))
+    .set(2, 3, -((2 * depthFar * depthNear) / (depthNear - depthFar)))
+    .set(3, 2, -1)
+    .set(
+      4,
+      4,
+      verticalFieldOfViewScalar // will break if aspect ratio isnt one
     );
-  });
-  const loopPointA = loopPoints[loopPointIndexA];
-  const loopPointB = loopPoints[(loopPointIndexA + 1) % loopPoints.length];
-  const inputTraceLoopPointB =
-    loopPointIndexA > -1
-      ? {
-          x: (loopPointA.x + loopPointB.x) / 2,
-          y: (loopPointA.y + loopPointB.y) / 2,
-        }
-      : loopPoints[0];
-  return getIntersectionPoint({
-    lineA: [loopPointA, loopPointB],
-    lineB: [
-      subCircle.center,
-      {
-        x: baseCircle.radius * Math.cos(traceAngle) + subCircle.center.x,
-        y: baseCircle.radius * Math.sin(traceAngle) + subCircle.center.y,
-      },
-    ],
-  });
+  return { perspectiveTransformMatrix };
 }
 
-interface GetLoopPointApi {
-  subCircle: Circle;
-  intersectionCircle: Circle;
-  intersectionAngle: number;
+interface GraphicProps {
+  graphicRectangle: Rectangle;
+  children: ReactNode;
 }
 
-function getLoopPoint(api: GetLoopPointApi) {
-  const { intersectionCircle, intersectionAngle, subCircle } = api;
-  const loopPointBase = {
-    x:
-      intersectionCircle.radius * Math.cos(intersectionAngle) +
-      intersectionCircle.center.x,
-    y: subCircle.radius * Math.sin(intersectionAngle) + subCircle.center.y,
-  };
-  return {
-    ...loopPointBase,
-    outputAngle: getNormalizedAngle({
-      someAngle: Math.atan2(
-        loopPointBase.y - subCircle.center.y,
-        loopPointBase.x - subCircle.center.x
-      ),
-    }),
-  };
-}
-
-interface GetIntersectionBaseAngleApi {
-  baseCircleRadius: number;
-  baseSubCenterDistance: number;
-  intersectionCircleRadius: number;
-}
-
-function getIntersectionBaseAngle(api: GetIntersectionBaseAngleApi) {
-  const { baseCircleRadius, baseSubCenterDistance, intersectionCircleRadius } =
-    api;
-  return Math.acos(
-    (Math.pow(baseCircleRadius, 2) -
-      Math.pow(baseSubCenterDistance, 2) -
-      Math.pow(intersectionCircleRadius, 2)) /
-      (-2 * baseSubCenterDistance * intersectionCircleRadius)
-  );
-}
-
-interface GetIntersectionCircleApi {
-  subCircleCenter: Point;
-  minIntersectionRadius: number;
-  relativeIntersectionRadius: number;
-  intersectionRadiusMinMaxDelta: number;
-}
-
-function getIntersectionCircle(api: GetIntersectionCircleApi) {
-  const {
-    subCircleCenter,
-    relativeIntersectionRadius,
-    intersectionRadiusMinMaxDelta,
-    minIntersectionRadius,
-  } = api;
-  return {
-    center: subCircleCenter,
-    radius:
-      relativeIntersectionRadius * intersectionRadiusMinMaxDelta +
-      minIntersectionRadius,
-  };
-}
-
-interface Circle {
-  radius: number;
-  center: Point;
-}
-
-interface Point {
+interface Rectangle {
   x: number;
   y: number;
+  width: number;
+  height: number;
 }
 
-interface GetDistanceBetweenPointsApi {
-  pointA: Point;
-  pointB: Point;
-}
-
-function getDistanceBetweenPoints(api: GetDistanceBetweenPointsApi) {
-  const { pointA, pointB } = api;
-  const deltaX = pointB.x - pointA.x;
-  const deltaY = pointB.y - pointA.y;
-  return Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2));
-}
-
-interface GetCirclePointApi {
-  someCircle: Circle;
-  pointAngle: number;
-}
-
-function getCirclePoint(api: GetCirclePointApi): Point {
-  const { pointAngle, someCircle } = api;
-  const circlePoint = {
-    x: Math.cos(pointAngle) * someCircle.radius + someCircle.center.x,
-    y: Math.sin(pointAngle) * someCircle.radius + someCircle.center.y,
-  };
-  return circlePoint;
-}
-
-interface GetNormalizedAngleApi {
-  someAngle: number;
-}
-
-function getNormalizedAngle(api: GetNormalizedAngleApi) {
-  const { someAngle } = api;
-  return (someAngle + 2 * Math.PI) % (2 * Math.PI);
-}
-
-export interface GetIntersectionPointApi {
-  lineA: [Point, Point];
-  lineB: [Point, Point];
-}
-
-// adjusted & optimized implementation of http://paulbourke.net/geometry/pointlineplane/
-export function getIntersectionPoint(api: GetIntersectionPointApi): Point {
-  const { lineB, lineA } = api;
-  const deltaYB = lineB[1].y - lineB[0].y;
-  const deltaXA = lineA[1].x - lineA[0].x;
-  const deltaXB = lineB[1].x - lineB[0].x;
-  const deltaYA = lineA[1].y - lineA[0].y;
-  const slopeA =
-    (deltaXB * (lineA[0].y - lineB[0].y) -
-      deltaYB * (lineA[0].x - lineB[0].x)) /
-    (deltaYB * deltaXA - deltaXB * deltaYA);
-  return {
-    x: lineA[0].x + slopeA * deltaXA,
-    y: lineA[0].y + slopeA * deltaYA,
-  };
+function Graphic(props: GraphicProps) {
+  const { graphicRectangle, children } = props;
+  return (
+    <svg
+      viewBox={`${graphicRectangle.x} ${graphicRectangle.y} ${graphicRectangle.width} ${graphicRectangle.height}`}
+    >
+      <g transform="scale(1,-1)">
+        <rect
+          x={graphicRectangle.x}
+          y={graphicRectangle.y}
+          width={graphicRectangle.width}
+          height={graphicRectangle.height}
+          fill={"black"}
+        />
+        {children}
+      </g>
+    </svg>
+  );
 }
