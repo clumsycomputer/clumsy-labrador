@@ -1,7 +1,14 @@
 import { AnimationModule } from "clumsy-graphics";
+import {
+  getLoopCosine,
+  getLoopPendulum,
+  getLoopPoint,
+  getLoopSine,
+} from "clumsy-math";
+import Color from "color";
 import Matrix from "ml-matrix";
 import React, { ReactNode } from "react";
-import Color from "color";
+import getColormap from "colormap";
 
 const HelloLoopAnimationModule: AnimationModule = {
   moduleName: "Hello-Loop",
@@ -26,23 +33,35 @@ interface GetLoopFrameDescriptionApi {
 
 async function getLoopFrameDescription(api: GetLoopFrameDescriptionApi) {
   const { frameCount, frameIndex } = api;
-  const { modelSpherePoints } = getModelSpherePoints();
-  const rotationAngle = ((2 * Math.PI) / frameCount) * frameIndex;
-  const worldTransformMatrix = Matrix.eye(5, 5)
+  const frameStamp = frameIndex / frameCount;
+  const loopsoidLayerCount = 13;
+  const { modelLoopsoidPoints } = getModelLoopsoidPoints({
+    frameStamp,
+    layerCount: loopsoidLayerCount,
+  });
+  const rotationAngle = 2 * Math.PI * frameStamp;
+  const worldTransformMatrix = Matrix.eye(6, 6)
     .set(1, 1, Math.cos(rotationAngle))
     .set(1, 2, -Math.sin(rotationAngle))
     .set(2, 1, Math.sin(rotationAngle))
-    .set(2, 2, Math.cos(rotationAngle));
-  const cameraTransformMatrix = Matrix.eye(5, 5).set(2, 3, -1.5);
+    .set(2, 2, Math.cos(rotationAngle))
+    .set(2, 3, -0.25);
+  const cameraTransformMatrix = Matrix.eye(6, 6).set(2, 3, -1.5);
   const { perspectiveTransformMatrix } = getPerspectiveTransformMatrix();
   const targetTransformMatrix = perspectiveTransformMatrix
     .mmul(cameraTransformMatrix)
     .mmul(worldTransformMatrix);
-  const targetSpherePoints = modelSpherePoints.map((someModelSpherePoint) =>
+  const targetSpherePoints = modelLoopsoidPoints.map((someModelSpherePoint) =>
     targetTransformMatrix
       .mmul(Matrix.columnVector(someModelSpherePoint))
       .to1DArray()
   );
+  const rainbowColormap = getColormap({
+    nshades: loopsoidLayerCount,
+    colormap: "warm",
+    format: "hex",
+    alpha: 1,
+  });
   return (
     <Graphic
       graphicRectangle={{
@@ -70,7 +89,9 @@ async function getLoopFrameDescription(api: GetLoopFrameDescriptionApi) {
               }
               width={graphicRectSize}
               height={graphicRectSize}
-              fill={new Color("yellow").lighten(someTargetSpherePoint[2] / 4)}
+              fill={new Color(
+                rainbowColormap[someTargetSpherePoint[5]]
+              ).lighten(someTargetSpherePoint[2] / 4)}
             />
           );
         })}
@@ -78,39 +99,149 @@ async function getLoopFrameDescription(api: GetLoopFrameDescriptionApi) {
   );
 }
 
-type SpherePoint = [
+type LoopsoidPoint = [
   x: number,
   y: number,
   z: number,
   w: number,
-  rectSize: number
+  rectSize: number,
+  layerIndex: number
 ];
 
-function getModelSpherePoints(): { modelSpherePoints: Array<SpherePoint> } {
-  const modelSpherePoints: Array<SpherePoint> = [];
-  const sliceCount = 48;
-  const sliceStep = Math.PI / (sliceCount - 1);
-  const slicePointCount = 48;
-  const slicePointStep = (2 * Math.PI) / slicePointCount;
-  for (let sliceIndex = 0; sliceIndex < sliceCount; sliceIndex++) {
-    const sliceDepth = Math.cos(sliceIndex * sliceStep);
-    const sliceRadius = Math.sin(sliceIndex * sliceStep);
+interface GetModelLoopsoidPointsApi {
+  frameStamp: number;
+  layerCount: number;
+}
+
+function getModelLoopsoidPoints(api: GetModelLoopsoidPointsApi) {
+  const { layerCount, frameStamp } = api;
+  const modelLoopsoidPoints: Array<LoopsoidPoint> = [];
+  const layerAngleStep = (2 * Math.PI) / layerCount;
+  const layerPointCount = 1024;
+  const layerPointAngleStep = (2 * Math.PI) / layerPointCount;
+  for (let layerIndex = 1; layerIndex < layerCount; layerIndex++) {
+    const layerAngle = layerIndex * layerAngleStep;
+    const layerDepth = getLoopCosine({
+      someLoopPoint: getLoopPoint({
+        inputAngle: layerAngle,
+        someLoopStructure: {
+          structureType: "initial",
+          loopBase: {
+            radius: 1,
+            center: [0, 0],
+          },
+          loopRotation: 0,
+          subStructure: {
+            structureType: "terminal",
+            relativeSubRadius: 1,
+            relativeSubDepth: 0,
+            subPhase: 0,
+            subOrientation: 0,
+          },
+        },
+      }),
+    });
+    const layerRadius = getLoopSine({
+      someLoopPoint: getLoopPoint({
+        inputAngle: layerAngle,
+        someLoopStructure: {
+          structureType: "initial",
+          loopBase: {
+            radius: 1,
+            center: [0, 0],
+          },
+          loopRotation: 0,
+          subStructure: {
+            structureType: "terminal",
+            relativeSubRadius: 0.8,
+            relativeSubDepth: 1,
+            subPhase: 2 * Math.PI * frameStamp + Math.PI / 4,
+            subOrientation: layerAngle,
+            // subOrientation: 2 * Math.PI * frameStamp + Math.PI / 4,
+          },
+        },
+      }),
+    });
     for (
-      let slicePointIndex = 0;
-      slicePointIndex < slicePointCount;
-      slicePointIndex++
+      let layerPointIndex = 0;
+      layerPointIndex < layerPointCount;
+      layerPointIndex++
     ) {
-      modelSpherePoints.push([
-        sliceRadius * Math.cos(slicePointIndex * slicePointStep),
-        sliceRadius * Math.sin(slicePointIndex * slicePointStep),
-        sliceDepth,
+      const pointAngle =
+        layerPointIndex * layerPointAngleStep + Math.PI * frameStamp;
+      const loopsoidX = getLoopCosine({
+        someLoopPoint: getLoopPoint({
+          inputAngle: pointAngle,
+          someLoopStructure: {
+            structureType: "initial",
+            loopBase: {
+              radius: layerRadius,
+              center: [0, 0],
+            },
+            loopRotation: 0,
+            subStructure: {
+              structureType: "terminal",
+              relativeSubRadius: 0.9,
+              relativeSubDepth: 1,
+              subPhase: 4 * 2 * Math.PI * frameStamp + Math.PI / 3,
+              subOrientation: layerAngle,
+              // subOrientation: 2 * Math.PI * frameStamp + Math.PI / 3,
+            },
+          },
+        }),
+      });
+      const loopsoidY = getLoopSine({
+        someLoopPoint: getLoopPoint({
+          inputAngle: pointAngle,
+          someLoopStructure: {
+            structureType: "initial",
+            loopBase: {
+              radius: layerRadius,
+              center: [0, 0],
+            },
+            loopRotation: 0,
+            subStructure: {
+              structureType: "terminal",
+              relativeSubRadius: 0.8,
+              relativeSubDepth: 1,
+              subPhase: 4 * 2 * Math.PI * frameStamp + Math.PI / 4,
+              subOrientation: 0,
+              // subOrientation: 2 * Math.PI * frameStamp + Math.PI / 4,
+            },
+          },
+        }),
+      });
+      const loopsoidZ = getLoopPendulum({
+        someLoopPoint: getLoopPoint({
+          inputAngle: pointAngle,
+          someLoopStructure: {
+            structureType: "initial",
+            loopBase: {
+              radius: layerRadius,
+              center: [0, 0],
+            },
+            loopRotation: 0,
+            subStructure: {
+              structureType: "terminal",
+              relativeSubRadius: 0.7,
+              relativeSubDepth: 1,
+              subPhase: 4 * 2 * Math.PI * frameStamp + Math.PI / 5,
+              subOrientation: 0,
+            },
+          },
+        }),
+      });
+      modelLoopsoidPoints.push([
+        loopsoidX,
+        loopsoidY,
+        loopsoidZ + layerDepth,
         1,
-        0.02,
+        0.05,
+        layerIndex,
       ]);
     }
   }
-  // modelSpherePoints.push([0, 1, 0, 1, 0.05]);
-  return { modelSpherePoints };
+  return { modelLoopsoidPoints };
 }
 
 function getPerspectiveTransformMatrix() {
@@ -120,14 +251,17 @@ function getPerspectiveTransformMatrix() {
   const verticalFieldOfViewScalar = 1 / Math.tan(verticalFieldOfViewAngle / 2);
   const depthFar = 3.25;
   const depthNear = 0.75;
-  // const depthNormalizationScalar = depthFar / (depthFar - depthNear);
-  // const depthNormalizationThing = -1 * depthNormalizationScalar * depthNear;
-  const perspectiveTransformMatrix = Matrix.zeros(5, 5)
+  const perspectiveTransformMatrix = Matrix.zeros(6, 6)
     .set(0, 0, verticalFieldOfViewScalar / aspectRatio)
     .set(1, 1, verticalFieldOfViewScalar)
     .set(2, 2, -((depthFar + depthNear) / (depthNear - depthFar)))
     .set(2, 3, -((2 * depthFar * depthNear) / (depthNear - depthFar)))
     .set(3, 2, -1)
+    .set(
+      5,
+      5,
+      1 // will break if aspect ratio isnt one
+    )
     .set(
       4,
       4,
