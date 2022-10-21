@@ -4,11 +4,14 @@ import {
   getLoopPendulum,
   getLoopPoint,
   getLoopSine,
+  _getRhythmGroup,
 } from "clumsy-math";
 import Color from "color";
-import Matrix from "ml-matrix";
-import React, { ReactNode } from "react";
 import getColormap from "colormap";
+import Matrix from "ml-matrix";
+import React from "react";
+import { getPerspectiveTransformMatrix } from "./getPerspectiveTransformMatrix";
+import { Graphic } from "./Graphic";
 
 const HelloLoopAnimationModule: AnimationModule = {
   moduleName: "Hello-Loop",
@@ -47,7 +50,11 @@ async function getLoopFrameDescription(api: GetLoopFrameDescriptionApi) {
     .set(2, 2, Math.cos(rotationAngle))
     .set(2, 3, -0.25);
   const cameraTransformMatrix = Matrix.eye(6, 6).set(2, 3, -1.5);
-  const { perspectiveTransformMatrix } = getPerspectiveTransformMatrix();
+  const { perspectiveTransformMatrix } = getPerspectiveTransformMatrix({
+    aspectRatio: 1,
+    verticalFieldOfViewAngle: (1.75 / 3) * Math.PI,
+    // verticalFieldOfViewAngle: (1 / 2) * Math.PI
+  });
   const targetTransformMatrix = perspectiveTransformMatrix
     .mmul(cameraTransformMatrix)
     .mmul(worldTransformMatrix);
@@ -117,7 +124,7 @@ function getModelLoopsoidPoints(api: GetModelLoopsoidPointsApi) {
   const { layerCount, frameStamp } = api;
   const modelLoopsoidPoints: Array<LoopsoidPoint> = [];
   const layerAngleStep = (2 * Math.PI) / layerCount;
-  const layerPointCount = 1024;
+  const layerPointCount = 128;
   const layerPointAngleStep = (2 * Math.PI) / layerPointCount;
   for (let layerIndex = 1; layerIndex < layerCount; layerIndex++) {
     const layerAngle = layerIndex * layerAngleStep;
@@ -225,7 +232,7 @@ function getModelLoopsoidPoints(api: GetModelLoopsoidPointsApi) {
               structureType: "terminal",
               relativeSubRadius: 0.7,
               relativeSubDepth: 1,
-              subPhase: 4 * 2 * Math.PI * frameStamp + Math.PI / 5,
+              subPhase: -4 * 2 * Math.PI * frameStamp + Math.PI / 5,
               subOrientation: 0,
             },
           },
@@ -242,62 +249,4 @@ function getModelLoopsoidPoints(api: GetModelLoopsoidPointsApi) {
     }
   }
   return { modelLoopsoidPoints };
-}
-
-function getPerspectiveTransformMatrix() {
-  const aspectRatio = 1;
-  const verticalFieldOfViewAngle = (1.75 / 3) * Math.PI;
-  // const verticalFieldOfViewAngle = (1 / 2) * Math.PI;
-  const verticalFieldOfViewScalar = 1 / Math.tan(verticalFieldOfViewAngle / 2);
-  const depthFar = 3.25;
-  const depthNear = 0.75;
-  const perspectiveTransformMatrix = Matrix.zeros(6, 6)
-    .set(0, 0, verticalFieldOfViewScalar / aspectRatio)
-    .set(1, 1, verticalFieldOfViewScalar)
-    .set(2, 2, -((depthFar + depthNear) / (depthNear - depthFar)))
-    .set(2, 3, -((2 * depthFar * depthNear) / (depthNear - depthFar)))
-    .set(3, 2, -1)
-    .set(
-      5,
-      5,
-      1 // will break if aspect ratio isnt one
-    )
-    .set(
-      4,
-      4,
-      verticalFieldOfViewScalar // will break if aspect ratio isnt one
-    );
-  return { perspectiveTransformMatrix };
-}
-
-interface GraphicProps {
-  graphicRectangle: Rectangle;
-  children: ReactNode;
-}
-
-interface Rectangle {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-function Graphic(props: GraphicProps) {
-  const { graphicRectangle, children } = props;
-  return (
-    <svg
-      viewBox={`${graphicRectangle.x} ${graphicRectangle.y} ${graphicRectangle.width} ${graphicRectangle.height}`}
-    >
-      <g transform="scale(1,-1)">
-        <rect
-          x={graphicRectangle.x}
-          y={graphicRectangle.y}
-          width={graphicRectangle.width}
-          height={graphicRectangle.height}
-          fill={"black"}
-        />
-        {children}
-      </g>
-    </svg>
-  );
 }
