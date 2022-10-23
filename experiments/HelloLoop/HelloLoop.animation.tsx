@@ -20,13 +20,13 @@ import { CellGraphic, GenericWorldCellPoint } from "./CellGraphic";
 const HelloLoopAnimationModule: AnimationModule = {
   moduleName: "Hello-Loop",
   getFrameDescription: getLoopFrameDescription,
-  frameCount: 32,
+  frameCount: getPrimeContainer(24),
   frameSize: {
-    width: 1024,
-    height: 1024,
+    width: 1024 * 8,
+    height: 1024 * 8,
   },
   animationSettings: {
-    frameRate: 9,
+    frameRate: 40,
     constantRateFactor: 1,
   },
 };
@@ -43,11 +43,12 @@ async function getLoopFrameDescription(api: GetLoopFrameDescriptionApi) {
   const frameStamp = frameIndex / frameCount;
   const loopsoidPointsA = getLoopsoidPoints({
     frameStamp,
+    frameIndex,
   });
   return (
     <CellGraphic
-      cameraDepth={-4}
-      lightDepth={10}
+      cameraDepth={-5}
+      lightDepth={30}
       perspectiveDepthFar={100}
       perspectiveDepthNear={0.1}
       perspectiveVerticalFieldOfViewAngle={(1.75 / 3) * Math.PI}
@@ -58,10 +59,11 @@ async function getLoopFrameDescription(api: GetLoopFrameDescriptionApi) {
 
 interface GetLoopsoidPointsApi {
   frameStamp: number;
+  frameIndex: number;
 }
 
 function getLoopsoidPoints(api: GetLoopsoidPointsApi) {
-  const { frameStamp } = api;
+  const { frameStamp, frameIndex } = api;
   const baseLoopStructure: LoopStructure = {
     structureType: "initial",
     loopBase: {
@@ -116,7 +118,7 @@ function getLoopsoidPoints(api: GetLoopsoidPointsApi) {
       },
     },
   };
-  const pointCount = getPrimeContainer(17);
+  const pointCount = getPrimeContainer(24);
   const loopsoidColormap = getColormap({
     nshades: pointCount,
     colormap: "warm",
@@ -124,10 +126,10 @@ function getLoopsoidPoints(api: GetLoopsoidPointsApi) {
     alpha: 1,
   });
   // const rhythmDensity = getPrimeContainer(8);
-  const rhythmDensity = getNearestPrimes(pointCount / 2)[1]!;
+  // const rhythmDensity = getNearestPrimes(pointCount / 2)[1]!;
   const densityPrimes = _getPrimesRangeInclusive({
     maxNumber: pointCount,
-    minNumber: rhythmDensity,
+    minNumber: 2,
   });
   const loopsoidPoints: Array<GenericWorldCellPoint> = [];
   for (
@@ -156,8 +158,9 @@ function getLoopsoidPoints(api: GetLoopsoidPointsApi) {
       )
     );
     for (let pointIndex = 0; pointIndex < pointCount; pointIndex++) {
-      const pointWeight = pointWeights[pointIndex];
-      const pointScalar = pointWeight / pointCount;
+      const pointWeight =
+        pointWeights[(pointIndex + frameIndex) % pointWeights.length];
+      const pointScalar = pointWeight / pointWeights[0];
       const basePoint = [
         getLoopCosine({
           someLoopPoint: getLoopPoint({
@@ -188,8 +191,8 @@ function getLoopsoidPoints(api: GetLoopsoidPointsApi) {
                 someLoopStructure: baseLoopStructure,
               }),
             }),
-        0.05,
-        loopsoidColormap[pointWeight],
+        0.03,
+        loopsoidColormap[(pointWeight + frameIndex) % pointCount],
       ];
       loopsoidPoints.push([
         basePoint[0] + pointScalar * basePoint[0],
