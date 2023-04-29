@@ -27,19 +27,18 @@ async function getPlaneGridFrameDescription(
   api: GetPlaneGridFrameDescriptionApi
 ) {
   const { frameCount, frameIndex } = api;
-  const gridRect = { x: -5, y: -5, width: 10, height: 10 };
+  const gridCenter = [0, 0, 0];
+  const gridSize = 10;
   const gridResolution = 12;
+  const cellSize = gridSize / gridResolution;
+  const gridRectX = gridCenter[0] - gridSize / 2;
+  const gridRectY = gridCenter[1] - gridSize / 2;
   const gridPoints: Array<WorldCellPoint> = [];
-  const cellSize = Math.min(gridRect.width, gridRect.height) / gridResolution;
   for (let rowIndex = 0; rowIndex < gridResolution; rowIndex++) {
-    const cellY =
-      rowIndex * (gridRect.height / gridResolution) + gridRect.y + cellSize / 2;
+    const cellY = rowIndex * cellSize + gridRectY + cellSize / 2;
     for (let columnIndex = 0; columnIndex < gridResolution; columnIndex++) {
-      const cellX =
-        columnIndex * (gridRect.width / gridResolution) +
-        gridRect.x +
-        cellSize / 2;
-      gridPoints.push([cellX, cellY, 0, cellSize / 3, "red"]);
+      const cellX = columnIndex * cellSize + gridRectX + cellSize / 2;
+      gridPoints.push([cellX, cellY, gridCenter[2], cellSize / 3, "red"]);
     }
   }
   return (
