@@ -5,7 +5,7 @@ import { CellGraphic, WorldCellPoint } from "../library/CellGraphic";
 const PlaneGridAnimationModule: AnimationModule = {
   moduleName: "Plane-Grid",
   getFrameDescription: getPlaneGridFrameDescription,
-  frameCount: 24,
+  frameCount: 96,
   frameSize: {
     width: 1024,
     height: 1024,
@@ -27,24 +27,43 @@ async function getPlaneGridFrameDescription(
   api: GetPlaneGridFrameDescriptionApi
 ) {
   const { frameCount, frameIndex } = api;
-  const gridOrientation: Vector3 = [0, 1, 0.5];
-  const gridCenter: Vector3 = [0, 0, 0];
-  const gridSize = 15;
-  const gridResolution = 48;
+  const frameStamp = frameIndex / frameCount;
+  const frameAngle = 2 * Math.PI * frameStamp;
+  const gridCenter: Vector3 = [
+    8 * Math.cos(frameAngle),
+    8 * Math.sin(frameAngle),
+    -4,
+  ];
+  const originalNormal: Vector3 = [0, 0, 1];
+  const gridNormal: Vector3 = normal([
+    -gridCenter[0],
+    -gridCenter[1],
+    -gridCenter[2],
+  ]);
+  const gridSize = 10;
+  const gridResolution = 24;
   const cellSize = gridSize / gridResolution;
-  const gridRectX = gridCenter[0] - gridSize / 2;
-  const gridRectY = gridCenter[1] - gridSize / 2;
+  const gridRectX = -gridSize / 2;
+  const gridRectY = -gridSize / 2;
   const gridPoints: Array<WorldCellPoint> = [];
-  const getRotatedPlaneVector = getGetRotatedPlaneVector({
-    planeOrientation: gridOrientation,
-    planeCenter: gridCenter,
-  });
+  const rotationAxis = crossProduct(originalNormal, gridNormal);
+  const rotationAngle = Math.acos(
+    dotProduct(originalNormal, gridNormal) /
+      (magnitude(originalNormal) * magnitude(gridNormal))
+  );
   for (let rowIndex = 0; rowIndex < gridResolution; rowIndex++) {
-    const cellY = rowIndex * cellSize + gridRectY + cellSize / 2;
+    const cellY = rowIndex * cellSize + cellSize / 2 + gridRectX;
     for (let columnIndex = 0; columnIndex < gridResolution; columnIndex++) {
-      const cellX = columnIndex * cellSize + gridRectX + cellSize / 2;
+      const cellX = columnIndex * cellSize + cellSize / 2 + gridRectY;
+      const rotatedCellVector = rotateVector(rotationAxis, rotationAngle, [
+        cellX,
+        cellY,
+        0,
+      ]);
       gridPoints.push([
-        ...getRotatedPlaneVector([cellX, cellY, gridCenter[2]]),
+        rotatedCellVector[0] + gridCenter[0],
+        rotatedCellVector[1] + gridCenter[1],
+        rotatedCellVector[2] + gridCenter[2],
         cellSize / 2,
         "red",
       ]);
@@ -52,137 +71,77 @@ async function getPlaneGridFrameDescription(
   }
   return (
     <CellGraphic
-      cameraDepth={-15}
+      cameraDepth={-10}
       lightDepth={30}
       perspectiveDepthFar={100}
       perspectiveDepthNear={0.1}
       perspectiveVerticalFieldOfViewAngle={(1.75 / 3) * Math.PI}
-      worldCellPoints={gridPoints}
+      worldCellPoints={[
+        ...gridPoints,
+        // [...targetCell, 1, "green"]
+      ]}
     />
   );
 }
 
 type Vector3 = [number, number, number];
 
-interface GetGetRotatedPlaneVectorApi {
-  planeCenter: Vector3;
-  planeOrientation: Vector3;
-}
-
-function getGetRotatedPlaneVector(api: GetGetRotatedPlaneVectorApi) {
-  const { planeOrientation, planeCenter } = api;
-  const unitVectorZ: Vector3 = [
-    0, // planeCenter[0],
-    0, // planeCenter[1],
-    1, // planeCenter[2] + 1,
-  ];
-  const rotationAxis = getCrossProduct({
-    vectorA: unitVectorZ,
-    vectorB: planeOrientation,
-  });
-  const normalizedRotationAxis = getNormalizedVector({
-    someVector: rotationAxis,
-  });
-  const rotationAngle = Math.acos(
-    getDotProduct({
-      vectorA: unitVectorZ,
-      vectorB: planeOrientation,
-    }) /
-      (getVectorMagnitude({
-        someVector: unitVectorZ,
-      }) *
-        getVectorMagnitude({
-          someVector: planeOrientation,
-        }))
-  );
-  return (someVector: Vector3): Vector3 => {
-    const rotationCosine = Math.cos(rotationAngle);
-    const vectorA = [
-      someVector[0] * rotationCosine,
-      someVector[1] * rotationCosine,
-      someVector[2] * rotationCosine,
-    ];
-    const vectorBA = getCrossProduct({
-      vectorA: normalizedRotationAxis,
-      vectorB: someVector,
-    });
-    const rotationSine = Math.sin(rotationAngle);
-    const vectorB = [
-      vectorBA[0] * rotationSine,
-      vectorBA[1] * rotationSine,
-      vectorBA[2] * rotationSine,
-    ];
-    const dotCA = getDotProduct({
-      vectorA: normalizedRotationAxis,
-      vectorB: someVector,
-    });
-    const oneMinusRotationCosine = 1 - rotationCosine;
-    const vectorC = [
-      normalizedRotationAxis[0] * dotCA * oneMinusRotationCosine,
-      normalizedRotationAxis[1] * dotCA * oneMinusRotationCosine,
-      normalizedRotationAxis[2] * dotCA * oneMinusRotationCosine,
-    ];
-    return [
-      vectorA[0] + vectorB[0] + vectorC[0],
-      vectorA[1] + vectorB[1] + vectorC[1],
-      vectorA[2] + vectorB[2] + vectorC[2],
-    ];
-  };
-}
-
-interface GetCrossProductApi {
-  vectorA: Vector3;
-  vectorB: Vector3;
-}
-
-function getCrossProduct(api: GetCrossProductApi): Vector3 {
-  const { vectorA, vectorB } = api;
+function crossProduct(a: Vector3, b: Vector3): Vector3 {
   return [
-    vectorA[1] * vectorB[2] - vectorA[2] * vectorB[1],
-    vectorA[2] * vectorB[0] - vectorA[0] * vectorB[2],
-    vectorA[0] * vectorB[1] - vectorA[1] * vectorB[0],
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
   ];
 }
 
-interface GetNormalizedVectorApi {
-  someVector: Vector3;
+function dotProduct(a: Vector3, b: Vector3): number {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
-function getNormalizedVector(api: GetNormalizedVectorApi): Vector3 {
-  const { someVector } = api;
-  const vectorMagnitude = getVectorMagnitude({
-    someVector,
-  });
-  return vectorMagnitude === 0
-    ? [...someVector]
-    : [
-        someVector[0] / vectorMagnitude,
-        someVector[1] / vectorMagnitude,
-        someVector[2] / vectorMagnitude,
-      ];
+function magnitude(a: Vector3): number {
+  return Math.sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
 }
 
-interface GetDotProductApi {
-  vectorA: Vector3;
-  vectorB: Vector3;
+function normal(a: Vector3): Vector3 {
+  const mag = magnitude(a);
+  return [a[0] / mag, a[1] / mag, a[2] / mag];
 }
 
-function getDotProduct(api: GetDotProductApi) {
-  const { vectorA, vectorB } = api;
-  return (
-    vectorA[0] * vectorB[0] + vectorA[1] * vectorB[1] + vectorA[2] * vectorB[2]
-  );
-}
-
-interface GetVectorMagnitudeApi {
-  someVector: Vector3;
-}
-
-function getVectorMagnitude(api: GetVectorMagnitudeApi) {
-  const { someVector } = api;
-  return Math.sqrt(
-    someVector[0] * someVector[0] +
-      someVector[1] * someVector[1] +
-      someVector[2] * someVector[2]
-  );
+function rotateVector(
+  rotationAxis: Vector3,
+  rotationAngle: number,
+  baseVector: Vector3
+): Vector3 {
+  const rotationCosine = Math.cos(rotationAngle);
+  const rotationSine = Math.sin(rotationAngle);
+  const oneMinusRotationCosine = 1 - rotationCosine;
+  return [
+    (rotationAxis[0] * rotationAxis[0] * oneMinusRotationCosine +
+      rotationCosine) *
+      baseVector[0] +
+      (rotationAxis[0] * rotationAxis[1] * oneMinusRotationCosine -
+        rotationAxis[2] * rotationSine) *
+        baseVector[1] +
+      (rotationAxis[0] * rotationAxis[2] * oneMinusRotationCosine +
+        rotationAxis[1] * rotationSine) *
+        baseVector[2],
+    (rotationAxis[0] * rotationAxis[1] * oneMinusRotationCosine +
+      rotationAxis[2] * rotationSine) *
+      baseVector[0] +
+      (rotationAxis[1] * rotationAxis[1] * oneMinusRotationCosine +
+        rotationCosine) *
+        baseVector[1] +
+      (rotationAxis[1] * rotationAxis[2] * oneMinusRotationCosine -
+        rotationAxis[0] * rotationSine) *
+        baseVector[2],
+    (rotationAxis[0] * rotationAxis[2] * oneMinusRotationCosine -
+      rotationAxis[1] * rotationSine) *
+      baseVector[0] +
+      (rotationAxis[1] * rotationAxis[2] * oneMinusRotationCosine +
+        rotationAxis[0] * rotationSine) *
+        baseVector[1] +
+      (rotationAxis[2] * rotationAxis[2] * oneMinusRotationCosine +
+        rotationCosine) *
+        baseVector[2],
+  ];
 }
