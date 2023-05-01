@@ -1,10 +1,16 @@
-import { AnimationModule } from "clumsy-graphics";
-import React from "react";
-import { CellGraphic, WorldCellPoint } from "../library/CellGraphic";
-import { getRelativeRhythmPoints } from "clumsy-math";
+import { AnimationModule } from 'clumsy-graphics'
+import React from 'react'
+import { CellGraphic, WorldCellPoint } from '../library/CellGraphic'
+import {
+  Vector3,
+  getCrossProduct,
+  getDotProduct,
+  getNormalizedVector,
+  getVectorMagnitude,
+} from '../library/Vector3'
 
 const PlaneGridAnimationModule: AnimationModule = {
-  moduleName: "Plane-Grid",
+  moduleName: 'Plane-Grid',
   getFrameDescription: getPlaneGridFrameDescription,
   frameCount: 48,
   frameSize: {
@@ -15,69 +21,37 @@ const PlaneGridAnimationModule: AnimationModule = {
     frameRate: 10,
     constantRateFactor: 1,
   },
-};
+}
 
-export default PlaneGridAnimationModule;
+export default PlaneGridAnimationModule
 
 interface GetPlaneGridFrameDescriptionApi {
-  frameCount: number;
-  frameIndex: number;
+  frameCount: number
+  frameIndex: number
 }
 
 async function getPlaneGridFrameDescription(
   api: GetPlaneGridFrameDescriptionApi
 ) {
-  const { frameCount, frameIndex } = api;
-  const frameStamp = frameIndex / frameCount;
-  const frameAngle = 2 * Math.PI * frameStamp;
-  // const gridCenter: Vector3 = [
-  //   8 * Math.cos(frameAngle),
-  //   8 * Math.sin(frameAngle),
-  //   -4,
-  // ];
-  const gridCenter: Vector3 = [0,0,0]
-  const originalNormal: Vector3 = [0,0, 1];
-  // const gridNormal: Vector3 = normal([
-  //   -gridCenter[0],
-  //   -gridCenter[1],
-  //   -gridCenter[2],
-  // ]);
-  const gridNormal: Vector3 = [0,0,1]
-  const gridSize = 15;
-  const gridResolution = 96;
-  const cellSize = gridSize / gridResolution;
-  const gridRectX = -gridSize / 2;
-  const gridRectY = -gridSize / 2;
-  const gridPoints: Array<WorldCellPoint> = [];
-  const rotationAxis = crossProduct(originalNormal, gridNormal);
-  const rotationAngle = Math.acos(
-    dotProduct(originalNormal, gridNormal) /
-      (magnitude(originalNormal) * magnitude(gridNormal))
-  );
-  for (let rowIndex = 0; rowIndex < gridResolution; rowIndex++) {
-    const cellY = rowIndex * cellSize + cellSize / 2 + gridRectX;
-    for (let columnIndex = 0; columnIndex < gridResolution; columnIndex++) {
-      const cellX = columnIndex * cellSize + cellSize / 2 + gridRectY;
-      const originDistance = Math.sqrt(cellX * cellX + cellY * cellY)
-      let originAngle = Math.atan2(cellY, cellX)
-      originAngle = originAngle < 0 ? originAngle + 2 * Math.PI : originAngle
-      const maxWaveDistance = Math.sqrt(gridSize * gridSize + gridSize * gridSize)
-      const waveSampleDistanceStamp = originDistance / maxWaveDistance
-      const waveSample = 0.5 * Math.sin(6 * 2 * Math.PI * waveSampleDistanceStamp)
-      const rotatedCellVector = rotateVector(rotationAxis, rotationAngle, [
-        cellX,
-        cellY,
-        waveSample,
-      ]);
-      gridPoints.push([
-        rotatedCellVector[0] + gridCenter[0],
-        rotatedCellVector[1] + gridCenter[1],
-        rotatedCellVector[2] + gridCenter[2],
-        cellSize / 2,
-        "red",
-      ]);
-    }
-  }
+  const { frameCount, frameIndex } = api
+  const frameStamp = frameIndex / frameCount
+  const frameAngle = 2 * Math.PI * frameStamp
+  const planeCellPointsA = getPlaneCellPoints({
+    planeCenter: [-1, -3, -3],
+    planeNormal: getNormalizedVector([1, 1, 0.25]),
+    planeLength: 10,
+    planeColor: 'red',
+    planeResolution: 128,
+    planeWaves: [],
+  })
+  const planeCellPointsB = getPlaneCellPoints({
+    planeCenter: [1, -3, -3],
+    planeNormal: getNormalizedVector([-1, 1, 0.25]),
+    planeLength: 10,
+    planeColor: 'red',
+    planeResolution: 128,
+    planeWaves: [],
+  })
   return (
     <CellGraphic
       cameraDepth={-10}
@@ -85,45 +59,77 @@ async function getPlaneGridFrameDescription(
       perspectiveDepthFar={100}
       perspectiveDepthNear={0.1}
       perspectiveVerticalFieldOfViewAngle={(1.75 / 3) * Math.PI}
-      worldCellPoints={[
-        ...gridPoints,
-        // [...targetCell, 1, "green"]
-      ]}
+      worldCellPoints={[...planeCellPointsA, ...planeCellPointsB]}
     />
-  );
+  )
 }
 
-type Vector3 = [number, number, number];
-
-function crossProduct(a: Vector3, b: Vector3): Vector3 {
-  return [
-    a[1] * b[2] - a[2] * b[1],
-    a[2] * b[0] - a[0] * b[2],
-    a[0] * b[1] - a[1] * b[0],
-  ];
+interface GetPlaneCellPointsApi {
+  planeCenter: Vector3
+  planeNormal: Vector3
+  planeLength: number
+  planeResolution: number
+  planeColor: string
+  planeWaves: Array<{
+    waveOrigin: Vector2
+    getWaveSample: () => number
+  }>
 }
 
-function dotProduct(a: Vector3, b: Vector3): number {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+type Vector2 = [number, number]
+
+function getPlaneCellPoints(api: GetPlaneCellPointsApi): Array<WorldCellPoint> {
+  const { planeLength, planeResolution, planeNormal, planeCenter, planeColor } =
+    api
+  const startingPlaneNormal: Vector3 = [0, 0, 1]
+  const planeLengthHalf = planeLength / 2
+  const cellFullSize = planeLength / planeResolution
+  const cellSize = cellFullSize / 2
+  const rotationAxis = getCrossProduct([0, 0, 1], planeNormal)
+  const rotationAngle = Math.acos(
+    getDotProduct(startingPlaneNormal, planeNormal) /
+      (getVectorMagnitude(startingPlaneNormal) *
+        getVectorMagnitude(planeNormal))
+  )
+  const planeCellPoints: Array<WorldCellPoint> = []
+  for (let rowIndex = 0; rowIndex < planeResolution; rowIndex++) {
+    const cellY = rowIndex * cellFullSize + cellSize - planeLengthHalf
+    for (let columnIndex = 0; columnIndex < planeResolution; columnIndex++) {
+      const cellX = columnIndex * cellFullSize + cellSize - planeLengthHalf
+      const originDistance = Math.sqrt(cellX * cellX + cellY * cellY)
+      let originAngle = Math.atan2(cellY, cellX)
+      originAngle = originAngle < 0 ? originAngle + 2 * Math.PI : originAngle
+      const maxWaveDistance = Math.sqrt(
+        planeLength * planeLength + planeLength * planeLength
+      )
+      const waveSampleDistanceStamp = originDistance / maxWaveDistance
+      const waveSample =
+        0.5 * Math.sin(6 * 2 * Math.PI * waveSampleDistanceStamp)
+      const rotatedCellVector = getRotatedCellVector(
+        rotationAxis,
+        rotationAngle,
+        [cellX, cellY, waveSample]
+      )
+      planeCellPoints.push([
+        rotatedCellVector[0] + planeCenter[0],
+        rotatedCellVector[1] + planeCenter[1],
+        rotatedCellVector[2] + planeCenter[2],
+        cellSize,
+        planeColor,
+      ])
+    }
+  }
+  return planeCellPoints
 }
 
-function magnitude(a: Vector3): number {
-  return Math.sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
-}
-
-function normal(a: Vector3): Vector3 {
-  const mag = magnitude(a);
-  return [a[0] / mag, a[1] / mag, a[2] / mag];
-}
-
-function rotateVector(
+function getRotatedCellVector(
   rotationAxis: Vector3,
   rotationAngle: number,
   baseVector: Vector3
 ): Vector3 {
-  const rotationCosine = Math.cos(rotationAngle);
-  const rotationSine = Math.sin(rotationAngle);
-  const oneMinusRotationCosine = 1 - rotationCosine;
+  const rotationCosine = Math.cos(rotationAngle)
+  const rotationSine = Math.sin(rotationAngle)
+  const oneMinusRotationCosine = 1 - rotationCosine
   return [
     (rotationAxis[0] * rotationAxis[0] * oneMinusRotationCosine +
       rotationCosine) *
@@ -152,5 +158,5 @@ function rotateVector(
       (rotationAxis[2] * rotationAxis[2] * oneMinusRotationCosine +
         rotationCosine) *
         baseVector[2],
-  ];
+  ]
 }
