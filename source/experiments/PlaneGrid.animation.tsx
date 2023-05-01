@@ -1,11 +1,12 @@
 import { AnimationModule } from "clumsy-graphics";
 import React from "react";
 import { CellGraphic, WorldCellPoint } from "../library/CellGraphic";
+import { getRelativeRhythmPoints } from "clumsy-math";
 
 const PlaneGridAnimationModule: AnimationModule = {
   moduleName: "Plane-Grid",
   getFrameDescription: getPlaneGridFrameDescription,
-  frameCount: 96,
+  frameCount: 48,
   frameSize: {
     width: 1024,
     height: 1024,
@@ -29,19 +30,21 @@ async function getPlaneGridFrameDescription(
   const { frameCount, frameIndex } = api;
   const frameStamp = frameIndex / frameCount;
   const frameAngle = 2 * Math.PI * frameStamp;
-  const gridCenter: Vector3 = [
-    8 * Math.cos(frameAngle),
-    8 * Math.sin(frameAngle),
-    -4,
-  ];
-  const originalNormal: Vector3 = [0, 0, 1];
-  const gridNormal: Vector3 = normal([
-    -gridCenter[0],
-    -gridCenter[1],
-    -gridCenter[2],
-  ]);
-  const gridSize = 10;
-  const gridResolution = 24;
+  // const gridCenter: Vector3 = [
+  //   8 * Math.cos(frameAngle),
+  //   8 * Math.sin(frameAngle),
+  //   -4,
+  // ];
+  const gridCenter: Vector3 = [0,0,0]
+  const originalNormal: Vector3 = [0,0, 1];
+  // const gridNormal: Vector3 = normal([
+  //   -gridCenter[0],
+  //   -gridCenter[1],
+  //   -gridCenter[2],
+  // ]);
+  const gridNormal: Vector3 = [0,0,1]
+  const gridSize = 15;
+  const gridResolution = 96;
   const cellSize = gridSize / gridResolution;
   const gridRectX = -gridSize / 2;
   const gridRectY = -gridSize / 2;
@@ -55,10 +58,16 @@ async function getPlaneGridFrameDescription(
     const cellY = rowIndex * cellSize + cellSize / 2 + gridRectX;
     for (let columnIndex = 0; columnIndex < gridResolution; columnIndex++) {
       const cellX = columnIndex * cellSize + cellSize / 2 + gridRectY;
+      const originDistance = Math.sqrt(cellX * cellX + cellY * cellY)
+      let originAngle = Math.atan2(cellY, cellX)
+      originAngle = originAngle < 0 ? originAngle + 2 * Math.PI : originAngle
+      const maxWaveDistance = Math.sqrt(gridSize * gridSize + gridSize * gridSize)
+      const waveSampleDistanceStamp = originDistance / maxWaveDistance
+      const waveSample = 0.5 * Math.sin(6 * 2 * Math.PI * waveSampleDistanceStamp)
       const rotatedCellVector = rotateVector(rotationAxis, rotationAngle, [
         cellX,
         cellY,
-        0,
+        waveSample,
       ]);
       gridPoints.push([
         rotatedCellVector[0] + gridCenter[0],
