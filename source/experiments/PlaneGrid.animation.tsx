@@ -7,7 +7,7 @@ import * as Vector2 from '../library/Vector2'
 const PlaneGridAnimationModule: AnimationModule = {
   moduleName: 'Plane-Grid',
   getFrameDescription: getPlaneGridFrameDescription,
-  frameCount: 48 * 3,
+  frameCount: 48,
   frameSize: {
     width: 2048,
     height: 2048,
@@ -30,184 +30,137 @@ async function getPlaneGridFrameDescription(
 ) {
   const { frameCount, frameIndex } = api
   const frameStamp = frameIndex / frameCount
-  const waveDistance = Vector2.getVectorMagnitude([5, 5])
-  const waveFrequency = 0.5 + 1.5 * frameStamp
+  const waveRingResolutionA = 3
+  const waveRingRadiusA = 3
   const planeCellPointsA = getWaveyPlaneCellPoints({
-    planeCenter: [-3, -3, -5],
-    planeNormal: Vector3.getNormalizedVector([1, 1, 0]),
-    planeLength: 15,
+    planeCenter: [0, 0, 0],
+    planeNormal: Vector3.getNormalizedVector([0, 0, 1]),
+    planeLength: 10,
     planeColor: 'white',
-    planeResolution: 128,
-    planeWaves: [
-      {
-        waveOrigin: [7.5, 7.5],
-        getWaveSample: (cellAngle, cellDistance) => {
-          const sampleStamp = cellDistance / waveDistance
-          const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 5 * 1 - sampleStamp
-          return sampleAmplitude * Math.sin(waveFrequency * sampleAngle)
-        },
-      },
-      {
-        waveOrigin: [-7.5, 7.5],
-        getWaveSample: (cellAngle, cellDistance) => {
-          const sampleStamp = cellDistance / waveDistance
-          const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 5 * 1 - sampleStamp
-          return sampleAmplitude * Math.sin(waveFrequency * sampleAngle)
-        },
-      },
-      {
-        waveOrigin: [-7.5, -7.5],
-        getWaveSample: (cellAngle, cellDistance) => {
-          const sampleStamp = cellDistance / waveDistance
-          const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 5 * 1 - sampleStamp
-          return sampleAmplitude * Math.sin(waveFrequency * sampleAngle)
-        },
-      },
-      {
-        waveOrigin: [7.5, -7.5],
-        getWaveSample: (cellAngle, cellDistance) => {
-          const sampleStamp = cellDistance / waveDistance
-          const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 5 * 1 - sampleStamp
-          return sampleAmplitude * Math.sin(waveFrequency * sampleAngle)
-        },
-      },
-    ],
+    planeResolution: 96,
+    planeWaves: new Array(waveRingResolutionA)
+      .fill(undefined)
+      .map((_, waveIndex) => {
+        const waveRingStamp = waveIndex / waveRingResolutionA
+        return {
+          waveOrigin: [
+            waveRingRadiusA *
+              Math.cos(2 * Math.PI * waveRingStamp + Math.PI / 2),
+            waveRingRadiusA *
+              Math.sin(2 * Math.PI * waveRingStamp + Math.PI / 2),
+          ],
+          getWaveSample: (cellAngle, cellDistance) => {
+            const waveDistance = 5
+            const waveFrequency = 2
+            const sampleStamp = cellDistance / waveDistance
+            const sampleAngle = 2 * Math.PI * sampleStamp
+            const sampleAmplitude = 1 - 1 * sampleStamp
+            return (
+              sampleAmplitude *
+              Math.sin(waveFrequency * sampleAngle + 2 * Math.PI * frameStamp)
+            )
+          },
+        }
+      }),
   })
+  const waveRingResolutionB = 4
+  const waveRingRadiusB = 5
   const planeCellPointsB = getWaveyPlaneCellPoints({
-    planeCenter: [3, -3, -5],
-    planeNormal: Vector3.getNormalizedVector([-1, 1, 0]),
-    planeLength: 15,
+    planeCenter: [0, 0, 0],
+    planeNormal: Vector3.getNormalizedVector([0, 0, 1]),
+    planeLength: 10,
     planeColor: 'white',
-    planeResolution: 128,
-    planeWaves: [
-      {
-        waveOrigin: [7.5, 7.5],
-        getWaveSample: (cellAngle, cellDistance) => {
-          const sampleStamp = cellDistance / waveDistance
-          const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 5 * 1 - sampleStamp
-          return sampleAmplitude * Math.sin(waveFrequency * sampleAngle)
-        },
-      },
-      {
-        waveOrigin: [-7.5, 7.5],
-        getWaveSample: (cellAngle, cellDistance) => {
-          const sampleStamp = cellDistance / waveDistance
-          const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 5 * 1 - sampleStamp
-          return sampleAmplitude * Math.sin(waveFrequency * sampleAngle)
-        },
-      },
-      {
-        waveOrigin: [-7.5, -7.5],
-        getWaveSample: (cellAngle, cellDistance) => {
-          const sampleStamp = cellDistance / waveDistance
-          const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 5 * 1 - sampleStamp
-          return sampleAmplitude * Math.sin(waveFrequency * sampleAngle)
-        },
-      },
-      {
-        waveOrigin: [7.5, -7.5],
-        getWaveSample: (cellAngle, cellDistance) => {
-          const sampleStamp = cellDistance / waveDistance
-          const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 5 * 1 - sampleStamp
-          return sampleAmplitude * Math.sin(waveFrequency * sampleAngle)
-        },
-      },
-    ],
+    planeResolution: 96,
+    planeWaves: new Array(waveRingResolutionB)
+      .fill(undefined)
+      .map((_, waveIndex) => {
+        const waveRingStamp = waveIndex / waveRingResolutionB
+        return {
+          waveOrigin: [
+            waveRingRadiusB *
+              Math.cos(2 * Math.PI * waveRingStamp + Math.PI / 4),
+            waveRingRadiusB *
+              Math.sin(2 * Math.PI * waveRingStamp + Math.PI / 4),
+          ],
+          getWaveSample: (cellAngle, cellDistance) => {
+            const waveDistance = 5
+            const waveFrequency = 4
+            const sampleStamp = cellDistance / waveDistance
+            const sampleAngle = 2 * Math.PI * sampleStamp
+            const sampleAmplitude = 1 - 1 * sampleStamp
+            return (
+              sampleAmplitude *
+              Math.sin(waveFrequency * sampleAngle + 2 * Math.PI * frameStamp)
+            )
+          },
+        }
+      }),
   })
   const planeCellPointsC = getWaveyPlaneCellPoints({
-    planeCenter: [3, 3, -5],
-    planeNormal: Vector3.getNormalizedVector([-1, -1, 0]),
-    planeLength: 15,
+    planeCenter: [0, 0, -5],
+    planeNormal: Vector3.getNormalizedVector([0, 1, 0]),
+    planeLength: 10,
     planeColor: 'white',
-    planeResolution: 128,
+    planeResolution: 96,
     planeWaves: [
       {
-        waveOrigin: [7.5, 7.5],
+        waveOrigin: [0, 0],
         getWaveSample: (cellAngle, cellDistance) => {
+          const waveDistance = 5
+          const waveFrequency = 3
           const sampleStamp = cellDistance / waveDistance
           const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 5 * 1 - sampleStamp
-          return sampleAmplitude * Math.sin(waveFrequency * sampleAngle)
-        },
-      },
-      {
-        waveOrigin: [-7.5, 7.5],
-        getWaveSample: (cellAngle, cellDistance) => {
-          const sampleStamp = cellDistance / waveDistance
-          const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 5 * 1 - sampleStamp
-          return sampleAmplitude * Math.sin(waveFrequency * sampleAngle)
-        },
-      },
-      {
-        waveOrigin: [-7.5, -7.5],
-        getWaveSample: (cellAngle, cellDistance) => {
-          const sampleStamp = cellDistance / waveDistance
-          const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 5 * 1 - sampleStamp
-          return sampleAmplitude * Math.sin(waveFrequency * sampleAngle)
-        },
-      },
-      {
-        waveOrigin: [7.5, -7.5],
-        getWaveSample: (cellAngle, cellDistance) => {
-          const sampleStamp = cellDistance / waveDistance
-          const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 5 * 1 - sampleStamp
-          return sampleAmplitude * Math.sin(waveFrequency * sampleAngle)
+          const sampleAmplitude = 1 - 1 * sampleStamp
+          return (
+            sampleAmplitude *
+            Math.sin(waveFrequency * sampleAngle + 2 * Math.PI * frameStamp)
+          )
         },
       },
     ],
   })
   const planeCellPointsD = getWaveyPlaneCellPoints({
-    planeCenter: [-3, 3, -5],
-    planeNormal: Vector3.getNormalizedVector([1, -1, 0]),
-    planeLength: 15,
+    planeCenter: [0, 2.5, -5],
+    planeNormal: Vector3.getNormalizedVector([0, 1, 0]),
+    planeLength: 6,
     planeColor: 'white',
-    planeResolution: 128,
+    planeResolution: 96,
     planeWaves: [
       {
-        waveOrigin: [7.5, 7.5],
+        waveOrigin: [0, 0],
         getWaveSample: (cellAngle, cellDistance) => {
+          const waveDistance = 3
+          const waveFrequency = 3
           const sampleStamp = cellDistance / waveDistance
           const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 5 * 1 - sampleStamp
-          return sampleAmplitude * Math.sin(waveFrequency * sampleAngle)
+          const sampleAmplitude = 0.75 - 0.75 * sampleStamp
+          return (
+            sampleAmplitude *
+            Math.sin(waveFrequency * sampleAngle + 2 * Math.PI * frameStamp)
+          )
         },
       },
+    ],
+  })
+  const planeCellPointsE = getWaveyPlaneCellPoints({
+    planeCenter: [0, 5, -5],
+    planeNormal: Vector3.getNormalizedVector([0, 1, 0]),
+    planeLength: 3,
+    planeColor: 'white',
+    planeResolution: 96,
+    planeWaves: [
       {
-        waveOrigin: [-7.5, 7.5],
+        waveOrigin: [0, 0],
         getWaveSample: (cellAngle, cellDistance) => {
+          const waveDistance = 3
+          const waveFrequency = 3
           const sampleStamp = cellDistance / waveDistance
           const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 5 * 1 - sampleStamp
-          return sampleAmplitude * Math.sin(waveFrequency * sampleAngle)
-        },
-      },
-      {
-        waveOrigin: [-7.5, -7.5],
-        getWaveSample: (cellAngle, cellDistance) => {
-          const sampleStamp = cellDistance / waveDistance
-          const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 5 * 1 - sampleStamp
-          return sampleAmplitude * Math.sin(waveFrequency * sampleAngle)
-        },
-      },
-      {
-        waveOrigin: [7.5, -7.5],
-        getWaveSample: (cellAngle, cellDistance) => {
-          const sampleStamp = cellDistance / waveDistance
-          const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 5 * 1 - sampleStamp
-          return sampleAmplitude * Math.sin(waveFrequency * sampleAngle)
+          const sampleAmplitude = 0.5 - 0.5 * sampleStamp
+          return (
+            sampleAmplitude *
+            Math.sin(waveFrequency * sampleAngle + 2 * Math.PI * frameStamp)
+          )
         },
       },
     ],
@@ -224,6 +177,7 @@ async function getPlaneGridFrameDescription(
         ...planeCellPointsB,
         ...planeCellPointsC,
         ...planeCellPointsD,
+        ...planeCellPointsE,
       ]}
     />
   )
@@ -266,7 +220,7 @@ function getWaveyPlaneCellPoints(api: GetWaveyPlaneCellPointsApi) {
         )
         accumulatedWaveSample = accumulatedWaveSample + currentWaveSample
       }
-      return accumulatedWaveSample / planeWaves.length
+      return accumulatedWaveSample
     },
   })
 }
