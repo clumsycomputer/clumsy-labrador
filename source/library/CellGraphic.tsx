@@ -1,20 +1,20 @@
-import React from "react";
-import Color from "color";
+import React from 'react'
+import Color from 'color'
 
 export interface CellGraphicProps {
-  cameraDepth: number;
-  perspectiveVerticalFieldOfViewAngle: number;
-  perspectiveDepthNear: number;
-  perspectiveDepthFar: number;
-  lightDepth: number;
-  worldCellPoints: Array<GenericWorldCellPoint>;
+  cameraDepth: number
+  perspectiveVerticalFieldOfViewAngle: number
+  perspectiveDepthNear: number
+  perspectiveDepthFar: number
+  lightDepth: number
+  worldCellPoints: Array<GenericWorldCellPoint>
 }
 
 export interface ViewRectangle {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  x: number
+  y: number
+  width: number
+  height: number
 }
 
 export type WorldCellPoint = [
@@ -23,11 +23,11 @@ export type WorldCellPoint = [
   z: number,
   size: number,
   color: string
-];
+]
 
-export type GenericWorldCellPoint = [...WorldCellPoint, ...Array<unknown>];
+export type GenericWorldCellPoint = [...WorldCellPoint, ...Array<unknown>]
 
-type GraphicCellPoint = [...WorldCellPoint, number];
+type GraphicCellPoint = [...WorldCellPoint, number]
 
 export function CellGraphic(props: CellGraphicProps) {
   const {
@@ -37,15 +37,15 @@ export function CellGraphic(props: CellGraphicProps) {
     perspectiveDepthFar,
     perspectiveVerticalFieldOfViewAngle,
     lightDepth,
-  } = props;
+  } = props
   const { perspectiveCellPoints } = getPerspectiveCellPoints({
     worldCellPoints,
     cameraDepth,
     perspectiveDepthNear,
     perspectiveDepthFar,
     perspectiveVerticalFieldOfViewAngle,
-  });
-  const viewRectangle = { x: -1, y: -1, width: 2, height: 2 };
+  })
+  const viewRectangle = { x: -1, y: -1, width: 2, height: 2 }
   return (
     <svg
       viewBox={`${viewRectangle.x} ${viewRectangle.y} ${viewRectangle.width} ${viewRectangle.height}`}
@@ -56,7 +56,7 @@ export function CellGraphic(props: CellGraphicProps) {
           y={viewRectangle.y}
           width={viewRectangle.width}
           height={viewRectangle.height}
-          fill={"black"}
+          fill={'black'}
         />
         {perspectiveCellPoints
           .sort((pointA, pointB) => pointA[2] - pointB[2])
@@ -70,8 +70,8 @@ export function CellGraphic(props: CellGraphicProps) {
               perspectiveCellDistance,
             ]) => {
               const graphicCellSize =
-                perspectiveCellSize / perspectiveCellDistance;
-              const halfGraphiclCellSize = graphicCellSize / 2;
+                perspectiveCellSize / perspectiveCellDistance
+              const halfGraphiclCellSize = graphicCellSize / 2
               return perspectiveCellDistance >= perspectiveDepthNear &&
                 perspectiveCellDistance <= perspectiveDepthFar ? (
                 <rect
@@ -89,22 +89,22 @@ export function CellGraphic(props: CellGraphicProps) {
                     perspectiveCellDistance / lightDepth
                   )}
                 />
-              ) : null;
+              ) : null
             }
           )}
       </g>
     </svg>
-  );
+  )
 }
 
 interface GetPerspectiveCellPointsApi
   extends Pick<
     CellGraphicProps,
-    | "cameraDepth"
-    | "perspectiveDepthNear"
-    | "perspectiveDepthFar"
-    | "perspectiveVerticalFieldOfViewAngle"
-    | "worldCellPoints"
+    | 'cameraDepth'
+    | 'perspectiveDepthNear'
+    | 'perspectiveDepthFar'
+    | 'perspectiveVerticalFieldOfViewAngle'
+    | 'worldCellPoints'
   > {}
 
 function getPerspectiveCellPoints(api: GetPerspectiveCellPointsApi) {
@@ -114,23 +114,23 @@ function getPerspectiveCellPoints(api: GetPerspectiveCellPointsApi) {
     perspectiveDepthNear,
     perspectiveDepthFar,
     perspectiveVerticalFieldOfViewAngle,
-  } = api;
+  } = api
   const verticalFieldOfViewScalar =
-    1 / Math.tan(perspectiveVerticalFieldOfViewAngle / 2);
-  const perspectiveScalarX = verticalFieldOfViewScalar;
-  const perspectiveScalarY = verticalFieldOfViewScalar;
-  const perspectiveScalarSize = verticalFieldOfViewScalar;
-  const perspectiveDepthDelta = perspectiveDepthNear - perspectiveDepthFar;
+    1 / Math.tan(perspectiveVerticalFieldOfViewAngle / 2)
+  const perspectiveScalarX = verticalFieldOfViewScalar
+  const perspectiveScalarY = verticalFieldOfViewScalar
+  const perspectiveScalarSize = verticalFieldOfViewScalar
+  const perspectiveDepthDelta = perspectiveDepthNear - perspectiveDepthFar
   const perspectiveScalarZ = -(
     (perspectiveDepthFar + perspectiveDepthNear) /
     perspectiveDepthDelta
-  );
+  )
   const perspectiveTranslationZ = -(
     (2 * perspectiveDepthFar * perspectiveDepthNear) /
     perspectiveDepthDelta
-  );
-  const perspectiveScalarDistance = -1;
-  const perspectiveCellPoints: Array<GraphicCellPoint> = [];
+  )
+  const perspectiveScalarDistance = -1
+  const perspectiveCellPoints: Array<GraphicCellPoint> = []
   for (let pointIndex = 0; pointIndex < worldCellPoints.length; pointIndex++) {
     perspectiveCellPoints.push(
       getPerspectiveCellPoint(
@@ -143,20 +143,20 @@ function getPerspectiveCellPoints(api: GetPerspectiveCellPointsApi) {
         perspectiveScalarDistance,
         worldCellPoints[pointIndex]
       )
-    );
+    )
   }
-  return { perspectiveCellPoints };
+  return { perspectiveCellPoints }
 }
 
 function getPerspectiveCellPoint(
-  cameraDepth: GetPerspectiveCellPointsApi["cameraDepth"],
+  cameraDepth: GetPerspectiveCellPointsApi['cameraDepth'],
   perspectiveScalarX: number,
   perspectiveScalarY: number,
   perspectiveScalarZ: number,
   perspectiveTranslationZ: number,
   perspectiveScalarSize: number,
   perspectiveScalarDistance: number,
-  someWorldCellPoint: GetPerspectiveCellPointsApi["worldCellPoints"][number]
+  someWorldCellPoint: GetPerspectiveCellPointsApi['worldCellPoints'][number]
 ): GraphicCellPoint {
   const pointResult: GraphicCellPoint = [
     someWorldCellPoint[0],
@@ -165,14 +165,13 @@ function getPerspectiveCellPoint(
     someWorldCellPoint[3],
     someWorldCellPoint[4],
     1,
-  ];
-  pointResult[2] = pointResult[2] + cameraDepth;
-  const cameraCellZ = pointResult[2];
-  pointResult[0] = perspectiveScalarX * pointResult[0];
-  pointResult[1] = perspectiveScalarY * pointResult[1];
-  pointResult[2] =
-    perspectiveScalarZ * pointResult[2] + perspectiveTranslationZ;
-  pointResult[3] = perspectiveScalarSize * pointResult[3];
-  pointResult[5] = perspectiveScalarDistance * cameraCellZ;
-  return pointResult;
+  ]
+  pointResult[2] = pointResult[2] + cameraDepth
+  const cameraCellZ = pointResult[2]
+  pointResult[0] = perspectiveScalarX * pointResult[0]
+  pointResult[1] = perspectiveScalarY * pointResult[1]
+  pointResult[2] = perspectiveScalarZ * pointResult[2] + perspectiveTranslationZ
+  pointResult[3] = perspectiveScalarSize * pointResult[3]
+  pointResult[5] = perspectiveScalarDistance * cameraCellZ
+  return pointResult
 }

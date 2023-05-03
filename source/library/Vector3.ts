@@ -30,3 +30,14 @@ export function getNormalizedVector(someVector: Vector3): Vector3 {
     someVector[2] / vectorMagnitude,
   ]
 }
+
+export function getScaledVector(
+  someVector: Vector3,
+  vectorScalar: number
+): Vector3 {
+  return [
+    vectorScalar * someVector[0],
+    vectorScalar * someVector[1],
+    vectorScalar * someVector[2],
+  ]
+}

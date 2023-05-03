@@ -3,6 +3,7 @@ import React from 'react'
 import { CellGraphic, WorldCellPoint } from '../library/CellGraphic'
 import * as Vector3 from '../library/Vector3'
 import * as Vector2 from '../library/Vector2'
+import { getReflectedPoint } from '../library/Point3'
 
 const PlaneGridAnimationModule: AnimationModule = {
   moduleName: 'Plane-Grid',
@@ -30,62 +31,28 @@ async function getPlaneGridFrameDescription(
 ) {
   const { frameCount, frameIndex } = api
   const frameStamp = frameIndex / frameCount
-  const waveRingResolutionA = 3
-  const waveRingRadiusA = 3
   const planeCellPointsA = getWaveyPlaneCellPoints({
-    planeCenter: [0, 0, 0],
-    planeNormal: Vector3.getNormalizedVector([0, 0, 1]),
+    planeCenter: [4, 4, -3],
+    planeNormal: Vector3.getNormalizedVector([1, 1, 0]),
     planeLength: 10,
+    getCellSize: (fullCellSize) => fullCellSize / 3,
     planeColor: 'white',
-    planeResolution: 96,
-    planeWaves: new Array(waveRingResolutionA)
-      .fill(undefined)
-      .map((_, waveIndex) => {
-        const waveRingStamp = waveIndex / waveRingResolutionA
+    planeResolution: 48,
+    planeWaves: [
+      ...new Array(4).fill(undefined).map<any>((_, waveIndex) => {
+        const waveRingRadius = Vector2.getVectorMagnitude([5, 5])
+        const waveRingStamp = waveIndex / 4
         return {
           waveOrigin: [
-            waveRingRadiusA *
-              Math.cos(2 * Math.PI * waveRingStamp + Math.PI / 2),
-            waveRingRadiusA *
-              Math.sin(2 * Math.PI * waveRingStamp + Math.PI / 2),
-          ],
-          getWaveSample: (cellAngle, cellDistance) => {
-            const waveDistance = 5
-            const waveFrequency = 2
-            const sampleStamp = cellDistance / waveDistance
-            const sampleAngle = 2 * Math.PI * sampleStamp
-            const sampleAmplitude = 1 - 1 * sampleStamp
-            return (
-              sampleAmplitude *
-              Math.sin(waveFrequency * sampleAngle + 2 * Math.PI * frameStamp)
-            )
-          },
-        }
-      }),
-  })
-  const waveRingResolutionB = 4
-  const waveRingRadiusB = 5
-  const planeCellPointsB = getWaveyPlaneCellPoints({
-    planeCenter: [0, 0, 0],
-    planeNormal: Vector3.getNormalizedVector([0, 0, 1]),
-    planeLength: 10,
-    planeColor: 'white',
-    planeResolution: 96,
-    planeWaves: new Array(waveRingResolutionB)
-      .fill(undefined)
-      .map((_, waveIndex) => {
-        const waveRingStamp = waveIndex / waveRingResolutionB
-        return {
-          waveOrigin: [
-            waveRingRadiusB *
+            waveRingRadius *
               Math.cos(2 * Math.PI * waveRingStamp + Math.PI / 4),
-            waveRingRadiusB *
+            waveRingRadius *
               Math.sin(2 * Math.PI * waveRingStamp + Math.PI / 4),
           ],
           getWaveSample: (cellAngle, cellDistance) => {
-            const waveDistance = 5
-            const waveFrequency = 4
-            const sampleStamp = cellDistance / waveDistance
+            const waveDistance = 2 * waveRingRadius
+            const waveFrequency = 220 / 64
+            const sampleStamp = Math.min(cellDistance / waveDistance, 1)
             const sampleAngle = 2 * Math.PI * sampleStamp
             const sampleAmplitude = 1 - 1 * sampleStamp
             return (
@@ -95,90 +62,119 @@ async function getPlaneGridFrameDescription(
           },
         }
       }),
+    ],
   })
-  const planeCellPointsC = getWaveyPlaneCellPoints({
-    planeCenter: [0, 0, -5],
-    planeNormal: Vector3.getNormalizedVector([0, 1, 0]),
+  const planeCellPointsB = getWaveyPlaneCellPoints({
+    planeCenter: [4, 4, -2],
+    planeNormal: Vector3.getNormalizedVector([1, 1, 0]),
     planeLength: 10,
+    getCellSize: (fullCellSize) => fullCellSize / 3,
     planeColor: 'white',
     planeResolution: 96,
     planeWaves: [
-      {
-        waveOrigin: [0, 0],
-        getWaveSample: (cellAngle, cellDistance) => {
-          const waveDistance = 5
-          const waveFrequency = 3
-          const sampleStamp = cellDistance / waveDistance
-          const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 1 - 1 * sampleStamp
-          return (
-            sampleAmplitude *
-            Math.sin(waveFrequency * sampleAngle + 2 * Math.PI * frameStamp)
-          )
-        },
-      },
+      ...new Array(4).fill(undefined).map<any>((_, waveIndex) => {
+        const waveRingRadius = Vector2.getVectorMagnitude([5, 5])
+        const waveRingStamp = waveIndex / 4
+        return {
+          waveOrigin: [
+            waveRingRadius *
+              Math.cos(2 * Math.PI * waveRingStamp + Math.PI / 4),
+            waveRingRadius *
+              Math.sin(2 * Math.PI * waveRingStamp + Math.PI / 4),
+          ],
+          getWaveSample: (cellAngle, cellDistance) => {
+            const waveDistance = 2 * waveRingRadius
+            const waveFrequency = 220 / 32
+            const sampleStamp = Math.min(cellDistance / waveDistance, 1)
+            const sampleAngle = 2 * Math.PI * sampleStamp
+            const sampleAmplitude = 1 - 1 * sampleStamp
+            return (
+              sampleAmplitude *
+              Math.sin(
+                waveFrequency * sampleAngle +
+                  2 * Math.PI * frameStamp +
+                  Math.PI / 3
+              )
+            )
+          },
+        }
+      }),
     ],
   })
-  const planeCellPointsD = getWaveyPlaneCellPoints({
-    planeCenter: [0, 2.5, -5],
-    planeNormal: Vector3.getNormalizedVector([0, 1, 0]),
-    planeLength: 6,
+  const mirrorPoints = [...planeCellPointsA, ...planeCellPointsB].reduce<
+    Array<WorldCellPoint>
+  >((result, baseCellPoint) => {
+    const [cellX, cellY, cellZ, cellSize, cellColor] = baseCellPoint
+    const reflectedPointY = getReflectedPoint(
+      [
+        [0, 0, cellZ],
+        [0, 1, cellZ],
+      ],
+      [cellX, cellY, cellZ]
+    )
+    const reflectedPointX = getReflectedPoint(
+      [
+        [0, 0, cellZ],
+        [1, 0, cellZ],
+      ],
+      [cellX, cellY, cellZ]
+    )
+    const reflectedPointYX = getReflectedPoint(
+      [
+        [0, 0, cellZ],
+        [0, 1, cellZ],
+      ],
+      reflectedPointX
+    )
+    result.push(
+      baseCellPoint,
+      [...reflectedPointY, cellSize, cellColor],
+      [...reflectedPointX, cellSize, cellColor],
+      [...reflectedPointYX, cellSize, cellColor]
+    )
+    return result
+  }, [])
+  const planeCellPointsC = getWaveyPlaneCellPoints({
+    planeCenter: [0, 0, 0],
+    planeNormal: Vector3.getNormalizedVector([0, 0, 1]),
+    planeLength: 10,
+    getCellSize: (fullCellSize) => fullCellSize / 2,
     planeColor: 'white',
-    planeResolution: 96,
+    planeResolution: 48 * 3,
     planeWaves: [
-      {
-        waveOrigin: [0, 0],
-        getWaveSample: (cellAngle, cellDistance) => {
-          const waveDistance = 3
-          const waveFrequency = 3
-          const sampleStamp = cellDistance / waveDistance
-          const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 0.75 - 0.75 * sampleStamp
-          return (
-            sampleAmplitude *
-            Math.sin(waveFrequency * sampleAngle + 2 * Math.PI * frameStamp)
-          )
-        },
-      },
-    ],
-  })
-  const planeCellPointsE = getWaveyPlaneCellPoints({
-    planeCenter: [0, 5, -5],
-    planeNormal: Vector3.getNormalizedVector([0, 1, 0]),
-    planeLength: 3,
-    planeColor: 'white',
-    planeResolution: 96,
-    planeWaves: [
-      {
-        waveOrigin: [0, 0],
-        getWaveSample: (cellAngle, cellDistance) => {
-          const waveDistance = 3
-          const waveFrequency = 3
-          const sampleStamp = cellDistance / waveDistance
-          const sampleAngle = 2 * Math.PI * sampleStamp
-          const sampleAmplitude = 0.5 - 0.5 * sampleStamp
-          return (
-            sampleAmplitude *
-            Math.sin(waveFrequency * sampleAngle + 2 * Math.PI * frameStamp)
-          )
-        },
-      },
+      ...new Array(4).fill(undefined).map<any>((_, waveIndex) => {
+        const waveRingRadius = Vector2.getVectorMagnitude([5, 5])
+        const waveRingStamp = waveIndex / 4
+        return {
+          waveOrigin: [
+            waveRingRadius *
+              Math.cos(2 * Math.PI * waveRingStamp + Math.PI / 4),
+            waveRingRadius *
+              Math.sin(2 * Math.PI * waveRingStamp + Math.PI / 4),
+          ],
+          getWaveSample: (cellAngle, cellDistance) => {
+            const waveDistance = 2 * waveRingRadius
+            const waveFrequency = 220
+            const sampleStamp = Math.min(cellDistance / waveDistance, 1)
+            const sampleAngle = 2 * Math.PI * sampleStamp
+            const sampleAmplitude = 1 - 1 * sampleStamp
+            return (
+              sampleAmplitude *
+              Math.sin(waveFrequency * sampleAngle + 2 * Math.PI * frameStamp)
+            )
+          },
+        }
+      }),
     ],
   })
   return (
     <CellGraphic
-      cameraDepth={-10}
+      cameraDepth={-9}
       lightDepth={30}
       perspectiveDepthFar={100}
       perspectiveDepthNear={0.1}
       perspectiveVerticalFieldOfViewAngle={(1.75 / 3) * Math.PI}
-      worldCellPoints={[
-        ...planeCellPointsA,
-        ...planeCellPointsB,
-        ...planeCellPointsC,
-        ...planeCellPointsD,
-        ...planeCellPointsE,
-      ]}
+      worldCellPoints={[...mirrorPoints, ...planeCellPointsC]}
     />
   )
 }
@@ -191,6 +187,7 @@ interface GetWaveyPlaneCellPointsApi
     | 'planeLength'
     | 'planeResolution'
     | 'planeColor'
+    | 'getCellSize'
   > {
   planeWaves: Array<{
     waveOrigin: Vector2.Vector2
@@ -231,6 +228,7 @@ interface GetPlaneCellPointsApi {
   planeLength: number
   planeResolution: number
   planeColor: string
+  getCellSize: (fullCellSize: number) => number
   getCellZ: (cellX: number, cellY: number) => number
 }
 
@@ -238,6 +236,7 @@ function getPlaneCellPoints(api: GetPlaneCellPointsApi): Array<WorldCellPoint> {
   const {
     planeLength,
     planeResolution,
+    getCellSize,
     planeNormal,
     planeCenter,
     getCellZ,
@@ -245,8 +244,8 @@ function getPlaneCellPoints(api: GetPlaneCellPointsApi): Array<WorldCellPoint> {
   } = api
   const startingPlaneNormal: Vector3.Vector3 = [0, 0, 1]
   const planeLengthHalf = planeLength / 2
-  const cellFullSize = planeLength / planeResolution
-  const cellSize = cellFullSize / 2
+  const fullCellSize = planeLength / planeResolution
+  const cellSize = getCellSize(fullCellSize)
   const rotationAxis = Vector3.getCrossProduct([0, 0, 1], planeNormal)
   const rotationAngle = Math.acos(
     Vector3.getDotProduct(startingPlaneNormal, planeNormal) /
@@ -255,9 +254,9 @@ function getPlaneCellPoints(api: GetPlaneCellPointsApi): Array<WorldCellPoint> {
   )
   const planeCellPoints: Array<WorldCellPoint> = []
   for (let rowIndex = 0; rowIndex < planeResolution; rowIndex++) {
-    const cellY = rowIndex * cellFullSize + cellSize - planeLengthHalf
+    const cellY = rowIndex * fullCellSize + cellSize - planeLengthHalf
     for (let columnIndex = 0; columnIndex < planeResolution; columnIndex++) {
-      const cellX = columnIndex * cellFullSize + cellSize - planeLengthHalf
+      const cellX = columnIndex * fullCellSize + cellSize - planeLengthHalf
       const cellZ = getCellZ(cellX, cellY)
       const rotatedCellVector = getRotatedCellVector(
         rotationAxis,
