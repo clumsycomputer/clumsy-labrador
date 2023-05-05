@@ -19,13 +19,17 @@ import {
 } from 'clumsy-math'
 import { Point3, getReflectedPoint } from '../library/Point3'
 
+const planeResolutionA = getPrimeContainer(23)
+const planeResolutionHalf = planeResolutionA / 2
+const terminalDensitiesA = getPrimesRangeInclusive(2, planeResolutionHalf)
+
 const PlaneGridAnimationModule: AnimationModule = {
   moduleName: 'Plane-Grid',
   getFrameDescription: getPlaneGridFrameDescription,
-  frameCount: 48,
+  frameCount: terminalDensitiesA.length,
   frameSize: {
-    width: 1024,
-    height: 1024,
+    width: 2048,
+    height: 2048,
   },
   animationSettings: {
     frameRate: 10,
@@ -45,14 +49,15 @@ async function getPlaneGridFrameDescription(
 ) {
   const { frameCount, frameIndex } = api
   const frameStamp = frameIndex / frameCount
-  const planeResolutionA = getPrimeContainer(12)
-  const planeResolutionHalf = planeResolutionA / 2
+
   const baseDensitiesA = getPrimesRangeInclusive(
     planeResolutionHalf,
     planeResolutionA
   )
-  const terminalDensityA = getNearestPrimes(planeResolutionHalf)[0]!
-  const planeLengthA = 15
+  // console.log(getPrimesRangeInclusive(2, planeResolutionHalf))
+  // const terminalDensityA = getNearestPrimes(planeResolutionHalf)[0]!
+  const terminalDensityA = terminalDensitiesA[frameIndex]
+  const planeLengthA = 18
   const planeCellPointsA = getWaveyPlaneCellPoints({
     // planeCenter: [3, 3, -2],
     // planeNormal: Vector3.getNormalizedVector([1, 1, 0.5]),
@@ -64,111 +69,94 @@ async function getPlaneGridFrameDescription(
     planeCenter: [0, 0, 0],
     planeNormal: Vector3.getNormalizedVector([0, 0, 1]),
     getCellSize: (fullCellSize) => fullCellSize / 2,
-    // cellCoordinates: getAllGridCoordinates({
-    //   planeResolution: planeResolutionA,
-    // }),
-    cellCoordinates: new Array(baseDensitiesA.length + 1)
+    cellLayers: new Array(baseDensitiesA.length + 1)
       .fill(undefined)
-      .reduce<{
-        cellCoordinates: Array<[number, number]>
-        remainingBaseDensities: Array<number>
-      }>(
-        (result, _, layerIndex) => {
-          const currentCellCoordinates = getRhythmMatrixCoordinates({
-            rhythmGroupStructures: [
-              {
-                baseStructure: {
-                  structureType: 'initial',
-                  rhythmResolution: planeResolutionA,
-                  subStructure:
-                    result.remainingBaseDensities.length === 0
-                      ? undefined
-                      : result.remainingBaseDensities.reduce<InterposedRhythmGroupBaseStructure | null>(
-                          (result, someBaseDensity, baseDensityIndex) => {
-                            const nextResult: InterposedRhythmGroupBaseStructure =
-                              result === null
-                                ? {
-                                    structureType: 'interposed',
-                                    rhythmOrientation: 0,
-                                    rhythmDensity: someBaseDensity,
-                                  }
-                                : {
-                                    structureType: 'interposed',
-                                    rhythmOrientation: 0,
-                                    rhythmDensity: someBaseDensity,
-                                    subStructure: result,
-                                  }
-                            return nextResult
-                          },
-                          null
-                        ) ?? throwInvalidPathError('planeA.cellCoordinates'),
-                },
-                memberStructure: {
-                  structureType: 'terminal',
-                  rhythmDensity: terminalDensityA,
-                },
+      .map<WaveyCellLayer>((_, layerIndex) => {
+        const remainingBaseDensities = baseDensitiesA.slice(layerIndex)
+        const layerStamp = layerIndex / (baseDensitiesA.length + 1)
+        const layerPhase = 2 * Math.PI * layerStamp
+        return {
+          cellCoordinates: getRhythmMatrixCoordinates({
+            baseStructure: {
+              structureType: 'initial',
+              rhythmResolution: planeResolutionA,
+              subStructure:
+                remainingBaseDensities.length === 0
+                  ? undefined
+                  : remainingBaseDensities.reduce<InterposedRhythmGroupBaseStructure | null>(
+                      (result, someBaseDensity, baseDensityIndex) => {
+                        const nextResult: InterposedRhythmGroupBaseStructure =
+                          result === null
+                            ? {
+                                structureType: 'interposed',
+                                rhythmOrientation: 0,
+                                rhythmDensity: someBaseDensity,
+                              }
+                            : {
+                                structureType: 'interposed',
+                                rhythmOrientation: 0,
+                                rhythmDensity: someBaseDensity,
+                                subStructure: result,
+                              }
+                        return nextResult
+                      },
+                      null
+                    ) ?? throwInvalidPathError('planeA.cellCoordinates'),
+            },
+            memberStructure: {
+              structureType: 'terminal',
+              rhythmDensity: baseDensitiesA[layerIndex - 1] ?? terminalDensityA,
+            },
+          }),
+          layerWaves: [
+            {
+              waveOrigin: [0, 0],
+              getWaveSample: (cellDistance) => {
+                const waveLength = Vector2.getVectorMagnitude([
+                  planeLengthA / 2,
+                  planeLengthA / 2,
+                ])
+                const sampleStamp = Math.min(cellDistance / waveLength, 1)
+                const waveFrequency = 440 / Math.pow(2, layerIndex)
+                const sampleAngle = 2 * Math.PI * sampleStamp
+                const framePhase = 2 * Math.PI * frameStamp
+                return Math.sin(
+                  waveFrequency * 2 * Math.PI * sampleAngle + framePhase
+                  // + layerPhase
+                )
               },
-            ],
-          })
-          const [staleBaseDensity, ...nextRemainingBaseDensities] =
-            result.remainingBaseDensities
-          return {
-            cellCoordinates: [
-              ...result.cellCoordinates,
-              ...currentCellCoordinates,
-            ],
-            remainingBaseDensities: nextRemainingBaseDensities,
-          }
-        },
-        {
-          cellCoordinates: [],
-          remainingBaseDensities: [...baseDensitiesA],
-        }
-      ).cellCoordinates,
-    planeWaves: [
-      {
-        waveOrigin: [0, 0],
-        getWaveSample: (cellDistance, cellAngle) => {
-          const waveLength = Vector2.getVectorMagnitude([
-            planeLengthA / 2,
-            planeLengthA / 2,
-          ])
-          const sampleStamp = Math.min(cellDistance / waveLength, 1)
-          const sampleAngle = 2 * Math.PI * sampleStamp
-          const waveFrequency = 0.5
-          const waveAmplitude = 2 * 1 - sampleStamp
-          const wavePhase = 2 * Math.PI * frameStamp
-          return (
-            waveAmplitude *
-            getLoopPendulum({
-              someLoopPoint: getLoopPoint({
-                someLoopStructure: {
-                  structureType: 'initial',
-                  loopBase: { center: [0, 0], radius: 1 },
-                  loopRotation: 0,
-                  subStructure: {
-                    structureType: 'interposed',
-                    subOrientation: 0,
-                    loopRotation: 2 * Math.PI * frameStamp,
-                    relativeSubRadius: 0.875,
-                    relativeSubDepth: 1,
-                    subPhase: 4 * 2 * Math.PI * frameStamp,
-                    subStructure: {
-                      structureType: 'terminal',
-                      subOrientation: 0,
-                      relativeSubRadius: 0.75,
-                      relativeSubDepth: 1,
-                      subPhase: 2 * Math.PI * frameStamp,
-                    },
+            },
+            ...new Array(4)
+              .fill(undefined)
+              .map<WaveyCellLayer['layerWaves'][number]>((_, waveIndex) => {
+                const waveStamp = waveIndex / 4
+                const waveAngle = 2 * Math.PI * waveStamp + Math.PI / 4
+                const waveRingRadius = Vector2.getVectorMagnitude([
+                  planeLengthA / 2,
+                  planeLengthA / 2,
+                ])
+                return {
+                  waveOrigin: [
+                    waveRingRadius * Math.cos(waveAngle),
+                    waveRingRadius * Math.sin(waveAngle),
+                  ],
+                  getWaveSample: (cellDistance) => {
+                    const waveLength = 2 * waveRingRadius
+                    const sampleStamp = Math.min(cellDistance / waveLength, 1)
+                    const sampleAngle = 2 * Math.PI * sampleStamp
+                    const waveFrequency = 220 / 32
+                    const waveAmplitude = 1 - sampleStamp
+                    const wavePhase = 2 * Math.PI * frameStamp
+                    return (
+                      waveAmplitude *
+                      Math.sin(waveFrequency * sampleAngle + wavePhase)
+                    )
                   },
-                },
-                inputAngle: waveFrequency * sampleAngle + wavePhase,
+                }
               }),
-            })
-          )
-        },
-      },
-    ],
+          ],
+        }
+      }),
   })
   // const mirrorPointsA = getSquareMirrorPoints({
   //   someCellPoints: [...planeCellPointsA],
@@ -193,35 +181,40 @@ interface GetWaveyPlaneCellPointsApi
     | 'planeLength'
     | 'planeResolution'
     | 'planeColor'
-    | 'cellCoordinates'
     | 'getCellSize'
   > {
-  planeWaves: Array<{
+  cellLayers: Array<WaveyCellLayer>
+}
+
+interface WaveyCellLayer extends Pick<CellLayer, 'cellCoordinates'> {
+  layerWaves: Array<{
     waveOrigin: Vector2.Vector2
-    getWaveSample: (cellDistance: number, cellAngle) => number
+    getWaveSample: (cellDistance: number) => number
   }>
 }
 
 function getWaveyPlaneCellPoints(api: GetWaveyPlaneCellPointsApi) {
-  const { planeWaves, ...unadjustedPlaneCellPointsApi } = api
+  const { cellLayers, ...unadjustedPlaneCellPointsApi } = api
   return getPlaneCellPoints({
     ...unadjustedPlaneCellPointsApi,
-    getCellZ: (cellX, cellY) => {
-      let accumulatedWaveSample = 0
-      for (let planeWave of planeWaves) {
-        const [waveX, waveY] = planeWave.waveOrigin
-        const deltaX = cellX - waveX
-        const deltaY = cellY - waveY
-        const cellDistance = Vector2.getVectorMagnitude([deltaX, deltaY])
-        const cellAngle = Math.atan2(deltaY, deltaX)
-        const currentWaveSample = planeWave.getWaveSample(
-          cellDistance,
-          cellAngle
-        )
-        accumulatedWaveSample = accumulatedWaveSample + currentWaveSample
+    cellLayers: cellLayers.map((someCellLayer) => {
+      return {
+        cellCoordinates: someCellLayer.cellCoordinates,
+        getCellZ: (cellX, cellY) => {
+          let accumulatedWaveSample = 0
+          for (let someLayerWave of someCellLayer.layerWaves) {
+            const [waveX, waveY] = someLayerWave.waveOrigin
+            const deltaX = cellX - waveX
+            const deltaY = cellY - waveY
+            const cellDistance = Vector2.getVectorMagnitude([deltaX, deltaY])
+            // const cellAngle = Math.atan2(deltaY, deltaX)
+            const currentWaveSample = someLayerWave.getWaveSample(cellDistance)
+            accumulatedWaveSample = accumulatedWaveSample + currentWaveSample
+          }
+          return accumulatedWaveSample
+        },
       }
-      return accumulatedWaveSample
-    },
+    }),
   })
 }
 
@@ -231,8 +224,12 @@ interface GetPlaneCellPointsApi {
   planeLength: number
   planeResolution: number
   planeColor: string
-  cellCoordinates: Array<[number, number]>
   getCellSize: (fullCellSize: number) => number
+  cellLayers: Array<CellLayer>
+}
+
+interface CellLayer {
+  cellCoordinates: Array<[number, number]>
   getCellZ: (cellX: number, cellY: number) => number
 }
 
@@ -242,15 +239,37 @@ function getPlaneCellPoints(api: GetPlaneCellPointsApi): Array<WorldCellPoint> {
     planeResolution,
     getCellSize,
     planeNormal,
-    cellCoordinates,
+    cellLayers,
     planeCenter,
-    getCellZ,
     planeColor,
   } = api
   const startingPlaneNormal: Vector3.Vector3 = [0, 0, 1]
   const planeLengthHalf = planeLength / 2
   const fullCellSize = planeLength / planeResolution
   const cellSize = getCellSize(fullCellSize)
+  const cellCoordinatesMap: Record<string, Vector3.Vector3> = {}
+  for (const currentCellLayer of cellLayers) {
+    for (const [indexX, indexY] of currentCellLayer.cellCoordinates) {
+      const currentCoordinatesKey = `${indexX},${indexY}`
+      const targetCellBaseVector = cellCoordinatesMap[currentCoordinatesKey]
+      if (targetCellBaseVector === undefined) {
+        const cellX = indexX * fullCellSize + cellSize - planeLengthHalf
+        const cellY = indexY * fullCellSize + cellSize - planeLengthHalf
+        cellCoordinatesMap[currentCoordinatesKey] = [
+          cellX,
+          cellY,
+          currentCellLayer.getCellZ(cellX, cellY),
+        ]
+      } else {
+        targetCellBaseVector[2] =
+          targetCellBaseVector[2] +
+          currentCellLayer.getCellZ(
+            targetCellBaseVector[0],
+            targetCellBaseVector[1]
+          )
+      }
+    }
+  }
   const rotationAxis = Vector3.getCrossProduct([0, 0, 1], planeNormal)
   const rotationAngle = Math.acos(
     Vector3.getDotProduct(startingPlaneNormal, planeNormal) /
@@ -258,14 +277,11 @@ function getPlaneCellPoints(api: GetPlaneCellPointsApi): Array<WorldCellPoint> {
         Vector3.getVectorMagnitude(planeNormal))
   )
   const planeCellPoints: Array<WorldCellPoint> = []
-  for (const [columnIndex, rowIndex] of cellCoordinates) {
-    const cellX = columnIndex * fullCellSize + cellSize - planeLengthHalf
-    const cellY = rowIndex * fullCellSize + cellSize - planeLengthHalf
-    const cellZ = getCellZ(cellX, cellY)
+  for (const cellBaseVector of Object.values(cellCoordinatesMap)) {
     const rotatedCellVector = getRotatedCellVector(
       rotationAxis,
       rotationAngle,
-      [cellX, cellY, cellZ]
+      cellBaseVector
     )
     planeCellPoints.push([
       rotatedCellVector[0] + planeCenter[0],
@@ -332,42 +348,70 @@ function getRotatedCellVector(
   ]
 }
 
-interface GetRhythmMatrixCoordinatesApi {
-  rhythmGroupStructures: Array<RhythmGroupStructure>
-}
-
-function getRhythmMatrixCoordinates(api: GetRhythmMatrixCoordinatesApi) {
-  const { rhythmGroupStructures } = api
-  return rhythmGroupStructures.reduce<Array<[number, number]>>(
-    (result, someRhythmGroupStructure) => {
-      const rhythmResolution =
-        someRhythmGroupStructure.baseStructure.rhythmResolution
-      return getRhythmSlotWeights(
-        getRhythmGroup(someRhythmGroupStructure).map(getRhythmMap)
-      ).reduce<Array<[number, number]>>(
-        (coordinatesResult, currentSlotWeight, currentSlotIndex) => {
-          coordinatesResult.push(
-            [currentSlotIndex, currentSlotWeight],
-            [rhythmResolution - currentSlotIndex - 1, currentSlotWeight],
-            [currentSlotWeight, currentSlotIndex],
-            [currentSlotWeight, rhythmResolution - currentSlotIndex - 1],
-            [currentSlotIndex, rhythmResolution - currentSlotWeight - 1],
-            [
-              rhythmResolution - currentSlotIndex - 1,
-              rhythmResolution - currentSlotWeight - 1,
-            ],
-            [rhythmResolution - currentSlotWeight - 1, currentSlotIndex],
-            [
-              rhythmResolution - currentSlotWeight - 1,
-              rhythmResolution - currentSlotIndex - 1,
-            ]
-          )
-          return coordinatesResult
-        },
-        result
-      )
-    },
-    []
+function getRhythmMatrixCoordinates(
+  someRhythmGroupStructure: RhythmGroupStructure
+): Array<[number, number]> {
+  const rhythmResolution =
+    someRhythmGroupStructure.baseStructure.rhythmResolution
+  return Array.from(
+    getRhythmSlotWeights(
+      getRhythmGroup(someRhythmGroupStructure).map(getRhythmMap)
+    ).reduce<Set<[number, number]>>(
+      (coordinatesResult, currentSlotWeight, currentSlotIndex) => {
+        const cellA: [number, number] = [currentSlotIndex, currentSlotWeight]
+        if (!coordinatesResult.has(cellA)) {
+          coordinatesResult.add(cellA)
+        }
+        const cellB: [number, number] = [
+          rhythmResolution - currentSlotIndex - 1,
+          currentSlotWeight,
+        ]
+        if (!coordinatesResult.has(cellB)) {
+          coordinatesResult.add(cellB)
+        }
+        const cellC: [number, number] = [currentSlotWeight, currentSlotIndex]
+        if (!coordinatesResult.has(cellC)) {
+          coordinatesResult.add(cellC)
+        }
+        const cellD: [number, number] = [
+          currentSlotWeight,
+          rhythmResolution - currentSlotIndex - 1,
+        ]
+        if (!coordinatesResult.has(cellD)) {
+          coordinatesResult.add(cellD)
+        }
+        const cellE: [number, number] = [
+          currentSlotIndex,
+          rhythmResolution - currentSlotWeight - 1,
+        ]
+        if (!coordinatesResult.has(cellE)) {
+          coordinatesResult.add(cellE)
+        }
+        const cellF: [number, number] = [
+          rhythmResolution - currentSlotIndex - 1,
+          rhythmResolution - currentSlotWeight - 1,
+        ]
+        if (!coordinatesResult.has(cellF)) {
+          coordinatesResult.add(cellF)
+        }
+        const cellG: [number, number] = [
+          rhythmResolution - currentSlotWeight - 1,
+          currentSlotIndex,
+        ]
+        if (!coordinatesResult.has(cellG)) {
+          coordinatesResult.add(cellG)
+        }
+        const cellH: [number, number] = [
+          rhythmResolution - currentSlotWeight - 1,
+          rhythmResolution - currentSlotIndex - 1,
+        ]
+        if (!coordinatesResult.has(cellH)) {
+          coordinatesResult.add(cellH)
+        }
+        return coordinatesResult
+      },
+      new Set()
+    )
   )
 }
 
