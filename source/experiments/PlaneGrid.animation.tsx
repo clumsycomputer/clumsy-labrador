@@ -16,20 +16,17 @@ import {
   InterposedRhythmGroupBaseStructure,
   getLoopPendulum,
   getLoopPoint,
+  LoopStructure,
 } from 'clumsy-math'
 import { Point3, getReflectedPoint } from '../library/Point3'
-
-const planeResolutionA = getPrimeContainer(23)
-const planeResolutionHalf = planeResolutionA / 2
-const terminalDensitiesA = getPrimesRangeInclusive(2, planeResolutionHalf)
 
 const PlaneGridAnimationModule: AnimationModule = {
   moduleName: 'Plane-Grid',
   getFrameDescription: getPlaneGridFrameDescription,
-  frameCount: terminalDensitiesA.length,
+  frameCount: 48,
   frameSize: {
-    width: 2048,
-    height: 2048,
+    width: 1024,
+    height: 1024,
   },
   animationSettings: {
     frameRate: 10,
@@ -49,114 +46,140 @@ async function getPlaneGridFrameDescription(
 ) {
   const { frameCount, frameIndex } = api
   const frameStamp = frameIndex / frameCount
-
+  const planeResolutionA = getPrimeContainer(8)
+  const planeResolutionHalfA = Math.floor(planeResolutionA / 2)
   const baseDensitiesA = getPrimesRangeInclusive(
-    planeResolutionHalf,
+    planeResolutionHalfA,
     planeResolutionA
   )
-  // console.log(getPrimesRangeInclusive(2, planeResolutionHalf))
-  // const terminalDensityA = getNearestPrimes(planeResolutionHalf)[0]!
-  const terminalDensityA = terminalDensitiesA[frameIndex]
-  const planeLengthA = 18
+  const terminalDensityA = getNearestPrimes(planeResolutionHalfA)[0]!
+  const slotWeightsA = rhythmSlotWeights({
+    baseStructure: {
+      structureType: 'initial',
+      rhythmResolution: planeResolutionA,
+      subStructure:
+        baseDensitiesA.reduce<InterposedRhythmGroupBaseStructure | null>(
+          (result, someBaseDensity) => {
+            const nextResult: InterposedRhythmGroupBaseStructure =
+              result === null
+                ? {
+                    structureType: 'interposed',
+                    rhythmOrientation: 0,
+                    rhythmDensity: someBaseDensity,
+                  }
+                : {
+                    structureType: 'interposed',
+                    rhythmOrientation: 0,
+                    rhythmDensity: someBaseDensity,
+                    subStructure: result,
+                  }
+            return nextResult
+          },
+          null
+        ) ?? throwInvalidPathError('groupStructureA'),
+    },
+    memberStructure: {
+      structureType: 'terminal',
+      rhythmDensity: terminalDensityA,
+    },
+  })
   const planeCellPointsA = getWaveyPlaneCellPoints({
-    // planeCenter: [3, 3, -2],
-    // planeNormal: Vector3.getNormalizedVector([1, 1, 0.5]),
-    // planeCenter: [2, 2, -2],
-    // planeNormal: Vector3.getNormalizedVector([1, 1, 0.35]),
     planeColor: 'white',
-    planeLength: planeLengthA,
     planeResolution: planeResolutionA,
+    planeLength: 15,
     planeCenter: [0, 0, 0],
-    planeNormal: Vector3.getNormalizedVector([0, 0, 1]),
+    planeNormal: [0, 0, 1],
     getCellSize: (fullCellSize) => fullCellSize / 2,
-    cellLayers: new Array(baseDensitiesA.length + 1)
-      .fill(undefined)
-      .map<WaveyCellLayer>((_, layerIndex) => {
-        const remainingBaseDensities = baseDensitiesA.slice(layerIndex)
-        const layerStamp = layerIndex / (baseDensitiesA.length + 1)
-        const layerPhase = 2 * Math.PI * layerStamp
-        return {
-          cellCoordinates: getRhythmMatrixCoordinates({
-            baseStructure: {
-              structureType: 'initial',
-              rhythmResolution: planeResolutionA,
-              subStructure:
-                remainingBaseDensities.length === 0
-                  ? undefined
-                  : remainingBaseDensities.reduce<InterposedRhythmGroupBaseStructure | null>(
-                      (result, someBaseDensity, baseDensityIndex) => {
-                        const nextResult: InterposedRhythmGroupBaseStructure =
-                          result === null
-                            ? {
-                                structureType: 'interposed',
-                                rhythmOrientation: 0,
-                                rhythmDensity: someBaseDensity,
-                              }
-                            : {
-                                structureType: 'interposed',
-                                rhythmOrientation: 0,
-                                rhythmDensity: someBaseDensity,
-                                subStructure: result,
-                              }
-                        return nextResult
-                      },
-                      null
-                    ) ?? throwInvalidPathError('planeA.cellCoordinates'),
-            },
-            memberStructure: {
-              structureType: 'terminal',
-              rhythmDensity: baseDensitiesA[layerIndex - 1] ?? terminalDensityA,
-            },
-          }),
-          layerWaves: [
-            {
-              waveOrigin: [0, 0],
-              getWaveSample: (cellDistance) => {
-                const waveLength = Vector2.getVectorMagnitude([
-                  planeLengthA / 2,
-                  planeLengthA / 2,
-                ])
-                const sampleStamp = Math.min(cellDistance / waveLength, 1)
-                const waveFrequency = 440 / Math.pow(2, layerIndex)
-                const sampleAngle = 2 * Math.PI * sampleStamp
+    planeLayers: [
+      {
+        cellCoordinates: getAllGridCoordinates({
+          planeResolution: planeResolutionA,
+        }),
+        // cellCoordinates: getRhythmMatrixCoordinates(slotWeightsA),
+        layerWaves: [
+          ...slotWeightsA
+            .map<Array<WaveyCellLayer['layerWaves'][number]>>(
+              (someSlotWeight, slotIndex) => {
+                const slotStamp = slotIndex / slotWeightsA.length
+                const baseSlotAngle = 2 * Math.PI * slotStamp
+                const slotAngleA = baseSlotAngle + Math.PI / 2
+                const slotAngleB = -baseSlotAngle + Math.PI / 2
+                const weightStamp = someSlotWeight / slotWeightsA[0]
+                const waveFrequency = someSlotWeight / 1.5
+                // neutralizes the pattern
+                // const waveFrequency = 220 / Math.pow(2, someSlotWeight)
+                const waveAmplitude = weightStamp / 2
+                const slotPhase = 2 * Math.PI * slotStamp
                 const framePhase = 2 * Math.PI * frameStamp
-                return Math.sin(
-                  waveFrequency * 2 * Math.PI * sampleAngle + framePhase
-                  // + layerPhase
-                )
-              },
-            },
-            ...new Array(4)
-              .fill(undefined)
-              .map<WaveyCellLayer['layerWaves'][number]>((_, waveIndex) => {
-                const waveStamp = waveIndex / 4
-                const waveAngle = 2 * Math.PI * waveStamp + Math.PI / 4
-                const waveRingRadius = Vector2.getVectorMagnitude([
-                  planeLengthA / 2,
-                  planeLengthA / 2,
+                const wavePhase = framePhase + slotPhase
+                const layerRingRadius = Vector2.getVectorMagnitude([
+                  planeResolutionHalfA,
+                  planeResolutionHalfA,
                 ])
-                return {
-                  waveOrigin: [
-                    waveRingRadius * Math.cos(waveAngle),
-                    waveRingRadius * Math.sin(waveAngle),
-                  ],
-                  getWaveSample: (cellDistance) => {
-                    const waveLength = 2 * waveRingRadius
-                    const sampleStamp = Math.min(cellDistance / waveLength, 1)
-                    const sampleAngle = 2 * Math.PI * sampleStamp
-                    const waveFrequency = 220 / 32
-                    const waveAmplitude = 1 - sampleStamp
-                    const wavePhase = 2 * Math.PI * frameStamp
-                    return (
-                      waveAmplitude *
-                      Math.sin(waveFrequency * sampleAngle + wavePhase)
+                // const slotRadius = (1 - weightStamp) * layerRingRadius
+                const slotRadius = weightStamp * layerRingRadius
+                const waveLength = layerRingRadius
+                const getSlotWaveSample = (cellDistance: number) => {
+                  const sampleStamp = Math.min(cellDistance / waveLength, 1)
+                  const sampleAngle = 2 * Math.PI * sampleStamp
+                  const waveAngle = waveFrequency * sampleAngle + wavePhase
+                  return (
+                    waveAmplitude *
+                    pendulum(
+                      {
+                        structureType: 'initial',
+                        loopBase: { center: [0, 0], radius: 1 },
+                        loopRotation: 0,
+                        subStructure: {
+                          structureType: 'interposed',
+                          subOrientation: 0,
+                          loopRotation: -framePhase,
+                          relativeSubRadius: 0.95,
+                          relativeSubDepth: 1,
+                          subPhase: -framePhase + slotPhase,
+                          subStructure: {
+                            structureType: 'interposed',
+                            subOrientation: slotPhase,
+                            loopRotation: 2 * -framePhase,
+                            relativeSubRadius: 0.875,
+                            relativeSubDepth: 1,
+                            subPhase: 2 * -framePhase + slotPhase,
+                            subStructure: {
+                              structureType: 'terminal',
+                              relativeSubRadius: 0.75,
+                              relativeSubDepth: 1,
+                              subOrientation: 2 * slotPhase,
+                              subPhase: 4 * -framePhase + slotPhase,
+                            },
+                          },
+                        },
+                      },
+                      waveAngle
                     )
-                  },
+                  )
                 }
-              }),
-          ],
-        }
-      }),
+                return [
+                  {
+                    waveOrigin: [
+                      slotRadius * Math.cos(slotAngleA),
+                      slotRadius * Math.sin(slotAngleA),
+                    ],
+                    getWaveSample: getSlotWaveSample,
+                  },
+                  {
+                    waveOrigin: [
+                      slotRadius * Math.cos(slotAngleB),
+                      slotRadius * Math.sin(slotAngleB),
+                    ],
+                    getWaveSample: getSlotWaveSample,
+                  },
+                ]
+              }
+            )
+            .flat(),
+        ],
+      },
+    ],
   })
   // const mirrorPointsA = getSquareMirrorPoints({
   //   someCellPoints: [...planeCellPointsA],
@@ -173,6 +196,15 @@ async function getPlaneGridFrameDescription(
   )
 }
 
+function pendulum(someLoopStructure: LoopStructure, inputAngle: number) {
+  return getLoopPendulum({
+    someLoopPoint: getLoopPoint({
+      someLoopStructure,
+      inputAngle,
+    }),
+  })
+}
+
 interface GetWaveyPlaneCellPointsApi
   extends Pick<
     GetPlaneCellPointsApi,
@@ -183,7 +215,7 @@ interface GetWaveyPlaneCellPointsApi
     | 'planeColor'
     | 'getCellSize'
   > {
-  cellLayers: Array<WaveyCellLayer>
+  planeLayers: Array<WaveyCellLayer>
 }
 
 interface WaveyCellLayer extends Pick<CellLayer, 'cellCoordinates'> {
@@ -194,10 +226,10 @@ interface WaveyCellLayer extends Pick<CellLayer, 'cellCoordinates'> {
 }
 
 function getWaveyPlaneCellPoints(api: GetWaveyPlaneCellPointsApi) {
-  const { cellLayers, ...unadjustedPlaneCellPointsApi } = api
+  const { planeLayers, ...unadjustedPlaneCellPointsApi } = api
   return getPlaneCellPoints({
     ...unadjustedPlaneCellPointsApi,
-    cellLayers: cellLayers.map((someCellLayer) => {
+    planeLayers: planeLayers.map((someCellLayer) => {
       return {
         cellCoordinates: someCellLayer.cellCoordinates,
         getCellZ: (cellX, cellY) => {
@@ -207,7 +239,6 @@ function getWaveyPlaneCellPoints(api: GetWaveyPlaneCellPointsApi) {
             const deltaX = cellX - waveX
             const deltaY = cellY - waveY
             const cellDistance = Vector2.getVectorMagnitude([deltaX, deltaY])
-            // const cellAngle = Math.atan2(deltaY, deltaX)
             const currentWaveSample = someLayerWave.getWaveSample(cellDistance)
             accumulatedWaveSample = accumulatedWaveSample + currentWaveSample
           }
@@ -224,8 +255,8 @@ interface GetPlaneCellPointsApi {
   planeLength: number
   planeResolution: number
   planeColor: string
+  planeLayers: Array<CellLayer>
   getCellSize: (fullCellSize: number) => number
-  cellLayers: Array<CellLayer>
 }
 
 interface CellLayer {
@@ -239,7 +270,7 @@ function getPlaneCellPoints(api: GetPlaneCellPointsApi): Array<WorldCellPoint> {
     planeResolution,
     getCellSize,
     planeNormal,
-    cellLayers,
+    planeLayers,
     planeCenter,
     planeColor,
   } = api
@@ -248,7 +279,7 @@ function getPlaneCellPoints(api: GetPlaneCellPointsApi): Array<WorldCellPoint> {
   const fullCellSize = planeLength / planeResolution
   const cellSize = getCellSize(fullCellSize)
   const cellCoordinatesMap: Record<string, Vector3.Vector3> = {}
-  for (const currentCellLayer of cellLayers) {
+  for (const currentCellLayer of planeLayers) {
     for (const [indexX, indexY] of currentCellLayer.cellCoordinates) {
       const currentCoordinatesKey = `${indexX},${indexY}`
       const targetCellBaseVector = cellCoordinatesMap[currentCoordinatesKey]
@@ -348,15 +379,18 @@ function getRotatedCellVector(
   ]
 }
 
+function rhythmSlotWeights(someRhythmGroupStructure: RhythmGroupStructure) {
+  return getRhythmSlotWeights(
+    getRhythmGroup(someRhythmGroupStructure).map(getRhythmMap)
+  )
+}
+
 function getRhythmMatrixCoordinates(
-  someRhythmGroupStructure: RhythmGroupStructure
+  someRhythmSlotWeights: ReturnType<typeof rhythmSlotWeights>
 ): Array<[number, number]> {
-  const rhythmResolution =
-    someRhythmGroupStructure.baseStructure.rhythmResolution
+  const rhythmResolution = someRhythmSlotWeights.length
   return Array.from(
-    getRhythmSlotWeights(
-      getRhythmGroup(someRhythmGroupStructure).map(getRhythmMap)
-    ).reduce<Set<[number, number]>>(
+    someRhythmSlotWeights.reduce<Set<[number, number]>>(
       (coordinatesResult, currentSlotWeight, currentSlotIndex) => {
         const cellA: [number, number] = [currentSlotIndex, currentSlotWeight]
         if (!coordinatesResult.has(cellA)) {
@@ -493,13 +527,15 @@ function throwInvalidPathError(errorPath: string): never {
 //     }
 //   ),
 
-// const planeResolutionA = getPrimeContainer(10)
+// const planeResolutionA = getPrimeContainer(8)
 // const planeResolutionHalf = planeResolutionA / 2
+// const terminalDensityA = getNearestPrimes(planeResolutionHalf)[0]!
 // const baseDensitiesA = getPrimesRangeInclusive(
 //   planeResolutionHalf,
 //   planeResolutionA
 // )
-// const terminalDensityA = getNearestPrimes(planeResolutionHalf)[0]!
+// // console.log(getPrimesRangeInclusive(2, planeResolutionHalf))
+// // const terminalDensityA = getNearestPrimes(planeResolutionHalf)[0]!
 // const planeLengthA = 10
 // const planeCellPointsA = getWaveyPlaneCellPoints({
 //   // planeCenter: [3, 3, -2],
@@ -507,117 +543,80 @@ function throwInvalidPathError(errorPath: string): never {
 //   // planeCenter: [2, 2, -2],
 //   // planeNormal: Vector3.getNormalizedVector([1, 1, 0.35]),
 //   planeColor: 'white',
-//   planeCenter: [0, 0, 0],
-//   planeNormal: Vector3.getNormalizedVector([0, 0, 1]),
 //   planeLength: planeLengthA,
 //   planeResolution: planeResolutionA,
+//   planeCenter: [0, 0, 0],
+//   planeNormal: Vector3.getNormalizedVector([0, 0, 1]),
 //   getCellSize: (fullCellSize) => fullCellSize / 2,
-//   cellCoordinates: new Array(baseDensitiesA.length + 1)
+//   cellLayers: new Array(baseDensitiesA.length + 1)
 //     .fill(undefined)
-//     .reduce<{
-//       cellCoordinates: Array<[number, number]>
-//       remainingBaseDensities: Array<number>
-//     }>(
-//       (result, _, layerIndex) => {
-//         const currentCellCoordinates = getRhythmMatrixCoordinates({
-//           rhythmGroupStructures: [
-//             {
-//               baseStructure: {
-//                 structureType: 'initial',
-//                 rhythmResolution: planeResolutionA,
-//                 subStructure:
-//                   result.remainingBaseDensities.length === 0
-//                     ? undefined
-//                     : result.remainingBaseDensities.reduce<InterposedRhythmGroupBaseStructure | null>(
-//                         (result, someBaseDensity, baseDensityIndex) => {
-//                           const nextResult: InterposedRhythmGroupBaseStructure =
-//                             result === null
-//                               ? {
-//                                   structureType: 'interposed',
-//                                   rhythmOrientation: 0,
-//                                   rhythmDensity: someBaseDensity,
-//                                 }
-//                               : {
-//                                   structureType: 'interposed',
-//                                   rhythmOrientation: 0,
-//                                   rhythmDensity: someBaseDensity,
-//                                   subStructure: result,
-//                                 }
-//                           return nextResult
-//                         },
-//                         null
-//                       ) ?? throwInvalidPathError('planeA.cellCoordinates'),
-//               },
-//               memberStructure: {
-//                 structureType: 'terminal',
-//                 rhythmDensity: terminalDensityA,
-//               },
-//             },
-//           ],
-//         })
-//         const [staleBaseDensity, ...nextRemainingBaseDensities] =
-//           result.remainingBaseDensities
-//         return {
-//           cellCoordinates: [
-//             ...result.cellCoordinates,
-//             ...currentCellCoordinates,
-//           ],
-//           remainingBaseDensities: nextRemainingBaseDensities,
-//         }
-//       },
-//       {
-//         cellCoordinates: [],
-//         remainingBaseDensities: [...baseDensitiesA],
-//       }
-//     ).cellCoordinates,
-//   planeWaves: [
-//     {
-//       waveOrigin: [0, 0],
-//       getWaveSample: (cellAngle, cellDistance) => {
-//         const waveLength = Vector2.getVectorMagnitude([
-//           planeLengthA / 2,
-//           planeLengthA / 2,
-//         ])
-//         const sampleStamp = Math.min(cellDistance / waveLength, 1)
-//         const sampleAngle = 2 * Math.PI * sampleStamp
-//         const waveFrequency = 220
-//         const waveAmplitude =
-//           Math.sin(2 * Math.PI * frameStamp) * (1 - sampleStamp)
-//         const wavePhase = 2 * Math.PI * frameStamp
-//         return (
-//           waveAmplitude * Math.sin(waveFrequency * sampleAngle + wavePhase)
-//         )
-//       },
-//     },
-//     ...new Array(3)
-//       .fill(undefined)
-//       .map<GetWaveyPlaneCellPointsApi['planeWaves'][number]>(
-//         (_, waveIndex) => {
-//           const waveStamp = waveIndex / 3
-//           const waveAngle = 2 * Math.PI * waveStamp + Math.PI / 2
-//           const waveRingRadius =
-//             Vector2.getVectorMagnitude([planeLengthA / 2, planeLengthA / 2]) /
-//             2
+//     .map<WaveyCellLayer>((_, layerIndex) => {
+//       const layerBaseDensities = baseDensitiesA.slice(layerIndex)
+//       const layerStamp = layerIndex / (baseDensitiesA.length + 1)
+//       const layerPhase = 2 * Math.PI * layerStamp
+//       const layerRingRadius =
+//         layerStamp *
+//         Vector2.getVectorMagnitude([planeLengthA / 2, planeLengthA / 2])
+//       const layerRhythmSlotWeights = rhythmSlotWeights({
+//         baseStructure: {
+//           structureType: 'initial',
+//           rhythmResolution: planeResolutionA,
+//           subStructure:
+//             layerBaseDensities.length === 0
+//               ? undefined
+//               : layerBaseDensities.reduce<InterposedRhythmGroupBaseStructure | null>(
+//                   (result, someBaseDensity, baseDensityIndex) => {
+//                     const nextResult: InterposedRhythmGroupBaseStructure =
+//                       result === null
+//                         ? {
+//                             structureType: 'interposed',
+//                             rhythmOrientation: 0,
+//                             rhythmDensity: someBaseDensity,
+//                           }
+//                         : {
+//                             structureType: 'interposed',
+//                             rhythmOrientation: 0,
+//                             rhythmDensity: someBaseDensity,
+//                             subStructure: result,
+//                           }
+//                     return nextResult
+//                   },
+//                   null
+//                 ) ?? throwInvalidPathError('planeA.cellCoordinates'),
+//         },
+//         memberStructure: {
+//           structureType: 'terminal',
+//           rhythmDensity: baseDensitiesA[layerIndex - 1] ?? terminalDensityA,
+//         },
+//       })
+//       return {
+//         cellCoordinates: getRhythmMatrixCoordinates(layerRhythmSlotWeights),
+//         layerWaves: layerRhythmSlotWeights.map<
+//           WaveyCellLayer['layerWaves'][number]
+//         >((slotWeight, slotIndex) => {
+//           const slotStamp = slotIndex / layerRhythmSlotWeights.length
+//           const slotAngle = 2 * Math.PI * slotStamp + Math.PI / 2
+//           const weightStamp = slotWeight / layerRhythmSlotWeights[0]!
 //           return {
 //             waveOrigin: [
-//               waveRingRadius * Math.cos(waveAngle),
-//               waveRingRadius * Math.sin(waveAngle),
+//               weightStamp * layerRingRadius * Math.cos(slotAngle),
+//               weightStamp * layerRingRadius * Math.sin(slotAngle),
 //             ],
-//             getWaveSample: (cellAngle, cellDistance) => {
-//               const waveLength = (2 * waveRingRadius) / 2
+//             getWaveSample: (cellDistance) => {
+//               const waveLength = 2 * layerRingRadius
 //               const sampleStamp = Math.min(cellDistance / waveLength, 1)
 //               const sampleAngle = 2 * Math.PI * sampleStamp
-//               const waveFrequency = 220 / 2
-//               const waveAmplitude =
-//                 Math.sin(2 * Math.PI * frameStamp) * (1 - sampleStamp)
+//               const waveFrequency = 220
+//               const waveAmplitude = (layerIndex + 1) * (1 - sampleStamp)
 //               const wavePhase = 2 * Math.PI * frameStamp
 //               return (
-//                 waveAmplitude *
-//                 Math.sin(waveFrequency * sampleAngle + wavePhase)
+//                 (waveAmplitude *
+//                   Math.sin(waveFrequency * sampleAngle + wavePhase)) /
+//                 planeResolutionA
 //               )
 //             },
 //           }
-//         }
-//       ),
-//   ],
+//         }),
+//       }
+//     }),
 // })
