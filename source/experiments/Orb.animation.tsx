@@ -2,11 +2,12 @@ import { AnimationModule } from 'clumsy-graphics'
 import { CellGraphic, WorldCellPoint } from '../library/CellGraphic'
 import React from 'react'
 import { Vector3, getNormalizedVector } from '../library/Vector3'
+import { getRotatedPoint } from 'clumsy-math'
 
 const OrbAnimationModule: AnimationModule = {
   moduleName: 'Orb',
   getFrameDescription: getOrbFrameDescription,
-  frameCount: 48,
+  frameCount: 64,
   frameSize: {
     width: 1024,
     height: 1024,
@@ -28,80 +29,39 @@ async function getOrbFrameDescription(api: GetOrbFrameDescriptionApi) {
   const { frameIndex, frameCount } = api
   const frameStamp = frameIndex / frameCount
   const radiusA = 5
-  const inclineResolution = 16
-  const sliceResolution = 16
+  const depthResolution = 64
+  const polarResolution = 64
   const spherePointsA: Array<WorldCellPoint> = []
-  const inclineAngleStep = Math.PI / (inclineResolution - 1)
-  const sliceAngleStep = (2 * Math.PI) / sliceResolution
-  for (let inclineIndex = 0; inclineIndex < inclineResolution; inclineIndex++) {
-    for (let sliceIndex = 0; sliceIndex < sliceResolution; sliceIndex++) {
+  const depthAngleStep = Math.PI / (depthResolution - 1)
+  const polarAngleStep = (2 * Math.PI) / polarResolution
+  for (let depthIndex = 0; depthIndex < depthResolution; depthIndex++) {
+    for (let polarIndex = 0; polarIndex < polarResolution; polarIndex++) {
       const basePoint = sphericalToCartesian([
         radiusA,
-        inclineIndex * inclineAngleStep,
-        sliceIndex * sliceAngleStep,
+        depthIndex * depthAngleStep,
+        polarIndex * polarAngleStep,
       ])
       const rotatedPoint = getRotatedCellVector(
-        getNormalizedVector([1, 1, 0]),
+        // getNormalizedVector([-1, 1, 0]),
+        getNormalizedVector([
+          Math.sin(8 * 2 * Math.PI * frameStamp) *
+            Math.cos(4 * 2 * Math.PI * frameStamp),
+          Math.sin(8 * 2 * Math.PI * frameStamp) *
+            Math.sin(4 * 2 * Math.PI * frameStamp),
+          Math.cos(8 * 2 * Math.PI * frameStamp),
+        ]),
         2 * Math.PI * frameStamp,
         basePoint
       )
-      spherePointsA.push([...rotatedPoint, 0.1, 'white'])
+      spherePointsA.push([...rotatedPoint, 0.05, 'white'])
+      spherePointsA.push([
+        // ??? [0,1,0] => [1,0,0]
+        ...getRotatedCellVector([1, 0, 0], Math.PI, rotatedPoint),
+        0.05,
+        'white',
+      ])
     }
   }
-  //   spherePointsA.push([
-  //     ...sphericalToCartesian([
-  //       radiusA,
-  //       0 * inclineAngleStep,
-  //       0 * sliceAngleStep,
-  //     ]),
-  //     0.25,
-  //     'white',
-  //   ])
-  //   spherePointsA.push([
-  //     ...sphericalToCartesian([
-  //       radiusA,
-  //       1 * inclineAngleStep,
-  //       0 * sliceAngleStep,
-  //     ]),
-  //     0.25,
-  //     'red',
-  //   ])
-  //   spherePointsA.push([
-  //     ...sphericalToCartesian([
-  //       radiusA,
-  //       2 * inclineAngleStep,
-  //       0 * sliceAngleStep,
-  //     ]),
-  //     0.25,
-  //     'yellow',
-  //   ])
-  //   spherePointsA.push([
-  //     ...sphericalToCartesian([
-  //       radiusA,
-  //       1 * inclineAngleStep,
-  //       1 * sliceAngleStep - Math.PI,
-  //     ]),
-  //     0.25,
-  //     'white',
-  //   ])
-  //   spherePointsA.push([
-  //     ...sphericalToCartesian([
-  //       radiusA,
-  //       1 * inclineAngleStep,
-  //       2 * sliceAngleStep - Math.PI,
-  //     ]),
-  //     0.25,
-  //     'white',
-  //   ])
-  //   spherePointsA.push([
-  //     ...sphericalToCartesian([
-  //       radiusA,
-  //       2 * inclineAngleStep,
-  //       0 * sliceAngleStep - Math.PI,
-  //     ]),
-  //     0.25,
-  //     'white',
-  //   ])
   return (
     <CellGraphic
       cameraDepth={-10}
@@ -109,15 +69,28 @@ async function getOrbFrameDescription(api: GetOrbFrameDescriptionApi) {
       perspectiveDepthFar={100}
       perspectiveDepthNear={0.1}
       perspectiveVerticalFieldOfViewAngle={(1.75 / 3) * Math.PI}
-      worldCellPoints={[...spherePointsA]}
+      worldCellPoints={[
+        ...spherePointsA,
+        // ...spherePointsA.map<WorldCellPoint>((somePoint) => {
+        //   return [
+        //     ...getRotatedCellVector([1, 0, 0], Math.PI, [
+        //       somePoint[0],
+        //       somePoint[1],
+        //       somePoint[2],
+        //     ]),
+        //     somePoint[3],
+        //     somePoint[4],
+        //   ]
+        // }),
+      ]}
     />
   )
 }
 
 type SphericalCoordinate = [
   radius: number,
-  zInclineAngle: number,
-  xyPlaneAngle: number
+  depthAngle: number,
+  polarAngle: number
 ]
 type CartesianCoordinate = [x: number, y: number, z: number]
 
@@ -169,48 +142,3 @@ function getRotatedCellVector(
         baseVector[2],
   ]
 }
-
-// // probably wrong
-// function cartesianToSpherical(
-//   someCartesian: CartesianCoordinate
-// ): SphericalCoordinate {
-//   const radius = Math.sqrt(
-//     someCartesian[0] * someCartesian[0] +
-//       someCartesian[1] * someCartesian[1] +
-//       someCartesian[2] * someCartesian[2]
-//   )
-//   return [
-//     radius,
-//     Math.atan2(someCartesian[1], someCartesian[0]),
-//     Math.acos(someCartesian[2] / radius),
-//   ]
-// }
-
-// function sphericalDistance(
-//   sphericalA: SphericalCoordinate,
-//   sphericalB: SphericalCoordinate
-// ): number {
-//   return cartesianDistance(
-//     sphericalToCartesian(sphericalA),
-//     sphericalToCartesian(sphericalB)
-//   )
-// }
-
-// function cartesianDistance(
-//   cartesianA: CartesianCoordinate,
-//   cartesianB: CartesianCoordinate
-// ): number {
-//   const deltaX = cartesianB[0] - cartesianA[0]
-//   const deltaY = cartesianB[1] - cartesianA[1]
-//   const deltaZ = cartesianB[2] - cartesianA[2]
-//   return Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ)
-// }
-
-// function angleBetweenSpherical(
-//   sphericalA: SphericalCoordinate,
-//   sphericalB: SphericalCoordinate
-// ): number {
-//   const deltaTheta = sphericalB[1] - sphericalA[1]
-//   const deltaPhi = sphericalB[2] - sphericalA[2]
-//   return Math.sqrt(deltaTheta * deltaTheta + deltaPhi * deltaPhi)
-// }
