@@ -2,12 +2,12 @@ import { AnimationModule } from 'clumsy-graphics'
 import { CellGraphic, WorldCellPoint } from '../library/CellGraphic'
 import React from 'react'
 import { Vector3, getNormalizedVector } from '../library/Vector3'
-import { getRotatedPoint } from 'clumsy-math'
+import * as Wave from '../library/Wave'
 
 const OrbAnimationModule: AnimationModule = {
   moduleName: 'Orb',
   getFrameDescription: getOrbFrameDescription,
-  frameCount: 64,
+  frameCount: 48 * 3,
   frameSize: {
     width: 1024,
     height: 1024,
@@ -34,32 +34,95 @@ async function getOrbFrameDescription(api: GetOrbFrameDescriptionApi) {
   const spherePointsA: Array<WorldCellPoint> = []
   const depthAngleStep = Math.PI / (depthResolution - 1)
   const polarAngleStep = (2 * Math.PI) / polarResolution
+  const depthFunctions: PlaneFunctions = [
+    (someInputAngle) =>
+      Wave.cos(
+        Wave.point(
+          [
+            [0.875, Wave.WAVE_ONE, 0, 0, 0],
+            [0.75, Wave.WAVE_ONE, 0, 0, 0],
+          ],
+          someInputAngle
+        )
+      ),
+    (someInputAngle) =>
+      Wave.sin(
+        Wave.point(
+          [
+            [0.875, Wave.WAVE_ONE, 0, 0, 0],
+            [0.75, Wave.WAVE_ONE, 0, 0, 0],
+          ],
+          someInputAngle
+        )
+      ),
+  ]
   for (let depthIndex = 0; depthIndex < depthResolution; depthIndex++) {
+    const depthStamp = depthIndex / depthResolution
+    const sliceFunctions: PlaneFunctions = [
+      (someInputAngle) =>
+        Wave.cos(
+          Wave.point(
+            [
+              [
+                0.875,
+                Wave.WAVE_ONE,
+                2 * Math.PI * frameStamp,
+                -2 * 2 * Math.PI * frameStamp,
+                0,
+              ],
+              [
+                0.75,
+                Wave.WAVE_ONE,
+                2 * 2 * Math.PI * frameStamp,
+                -2 * Math.PI * frameStamp,
+                0,
+              ],
+            ],
+            someInputAngle
+          )
+        ),
+      (someInputAngle) =>
+        Wave.sin(
+          Wave.point(
+            [
+              [
+                0.875,
+                Wave.WAVE_ONE,
+                2 * Math.PI * frameStamp,
+                -2 * 2 * Math.PI * frameStamp,
+                0,
+              ],
+              [
+                0.75,
+                Wave.WAVE_ONE,
+                2 * 2 * Math.PI * frameStamp,
+                -2 * Math.PI * frameStamp,
+                0,
+              ],
+            ],
+            someInputAngle
+          )
+        ),
+    ]
     for (let polarIndex = 0; polarIndex < polarResolution; polarIndex++) {
-      const basePoint = sphericalToCartesian([
+      const basePoint = sphericalToCartesian(depthFunctions, sliceFunctions, [
         radiusA,
         depthIndex * depthAngleStep,
         polarIndex * polarAngleStep,
       ])
       const rotatedPoint = getRotatedCellVector(
-        // getNormalizedVector([-1, 1, 0]),
+        // getNormalizedVector([1, 0, 0]),
         getNormalizedVector([
-          Math.sin(8 * 2 * Math.PI * frameStamp) *
-            Math.cos(4 * 2 * Math.PI * frameStamp),
-          Math.sin(8 * 2 * Math.PI * frameStamp) *
-            Math.sin(4 * 2 * Math.PI * frameStamp),
-          Math.cos(8 * 2 * Math.PI * frameStamp),
+          depthFunctions[1](8 * 2 * Math.PI * frameStamp) *
+            sliceFunctions[0](4 * 2 * Math.PI * frameStamp),
+          depthFunctions[1](8 * 2 * Math.PI * frameStamp) *
+            sliceFunctions[1](4 * 2 * Math.PI * frameStamp),
+          depthFunctions[0](8 * 2 * Math.PI * frameStamp),
         ]),
         2 * Math.PI * frameStamp,
         basePoint
       )
-      spherePointsA.push([...rotatedPoint, 0.05, 'white'])
-      spherePointsA.push([
-        // ??? [0,1,0] => [1,0,0]
-        ...getRotatedCellVector([1, 0, 0], Math.PI, rotatedPoint),
-        0.05,
-        'white',
-      ])
+      spherePointsA.push([...rotatedPoint, 0.04, 'white'])
     }
   }
   return (
@@ -69,38 +132,39 @@ async function getOrbFrameDescription(api: GetOrbFrameDescriptionApi) {
       perspectiveDepthFar={100}
       perspectiveDepthNear={0.1}
       perspectiveVerticalFieldOfViewAngle={(1.75 / 3) * Math.PI}
-      worldCellPoints={[
-        ...spherePointsA,
-        // ...spherePointsA.map<WorldCellPoint>((somePoint) => {
-        //   return [
-        //     ...getRotatedCellVector([1, 0, 0], Math.PI, [
-        //       somePoint[0],
-        //       somePoint[1],
-        //       somePoint[2],
-        //     ]),
-        //     somePoint[3],
-        //     somePoint[4],
-        //   ]
-        // }),
-      ]}
+      worldCellPoints={[...spherePointsA]}
     />
   )
 }
 
 type SphericalCoordinate = [
   radius: number,
-  depthAngle: number,
-  polarAngle: number
+  depthPlaneAngle: number,
+  slicePlaneAngle: number
 ]
+
 type CartesianCoordinate = [x: number, y: number, z: number]
 
+type PlaneFunctions = [
+  cosine: PlaneComponentFunction,
+  sine: PlaneComponentFunction
+]
+
+type PlaneComponentFunction = (someAngle: number) => number
+
 function sphericalToCartesian(
+  depthFunctions: PlaneFunctions,
+  sliceFunctions: PlaneFunctions,
   someSpherical: SphericalCoordinate
 ): CartesianCoordinate {
   return [
-    someSpherical[0] * Math.sin(someSpherical[1]) * Math.cos(someSpherical[2]),
-    someSpherical[0] * Math.sin(someSpherical[1]) * Math.sin(someSpherical[2]),
-    someSpherical[0] * Math.cos(someSpherical[1]),
+    someSpherical[0] *
+      depthFunctions[1](someSpherical[1]) *
+      sliceFunctions[0](someSpherical[2]),
+    someSpherical[0] *
+      depthFunctions[1](someSpherical[1]) *
+      sliceFunctions[1](someSpherical[2]),
+    someSpherical[0] * depthFunctions[0](someSpherical[1]),
   ]
 }
 
