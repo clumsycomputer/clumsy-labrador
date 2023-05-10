@@ -1,24 +1,22 @@
 import { AnimationModule } from 'clumsy-graphics'
-import React from 'react'
-import { CellGraphic, WorldCellPoint } from '../library/CellGraphic'
-import * as Vector3 from '../library/Vector3'
-import * as Vector2 from '../library/Vector2'
 import {
-  getRhythmSlotWeights,
-  getRhythmGroup,
-  getRhythmMap,
-  getNearestPrimes,
-  _GetRhythmSlotWeightsApi,
-  RhythmGroup,
-  RhythmGroupStructure,
-  getPrimeContainer,
-  getPrimesRangeInclusive,
   InterposedRhythmGroupBaseStructure,
+  LoopStructure,
   getLoopPendulum,
   getLoopPoint,
-  LoopStructure,
+  getNearestPrimes,
+  getPrimeContainer,
+  getPrimesRangeInclusive,
 } from 'clumsy-math'
+import React from 'react'
+import { CellGraphic, WorldCellPoint } from '../library/CellGraphic'
 import { Point3, getReflectedPoint } from '../library/Point3'
+import * as Vector2 from '../library/Vector2'
+import * as Vector3 from '../library/Vector3'
+import {
+  rhythmSlotWeights,
+  throwInvalidPathError,
+} from '../library/miscellaneous'
 
 const PlaneGridAnimationModule: AnimationModule = {
   moduleName: 'Plane-Grid',
@@ -379,12 +377,6 @@ function getRotatedCellVector(
   ]
 }
 
-function rhythmSlotWeights(someRhythmGroupStructure: RhythmGroupStructure) {
-  return getRhythmSlotWeights(
-    getRhythmGroup(someRhythmGroupStructure).map(getRhythmMap)
-  )
-}
-
 function getRhythmMatrixCoordinates(
   someRhythmSlotWeights: ReturnType<typeof rhythmSlotWeights>
 ): Array<[number, number]> {
@@ -490,10 +482,6 @@ function getSquareMirrorPoints(api: GetSquareMirrorPointsApi) {
     },
     []
   )
-}
-
-function throwInvalidPathError(errorPath: string): never {
-  throw new Error(`invalid path reached: ${errorPath}`)
 }
 
 // ...new Array(4)

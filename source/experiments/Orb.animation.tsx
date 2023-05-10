@@ -1,19 +1,65 @@
 import { AnimationModule } from 'clumsy-graphics'
-import { CellGraphic, WorldCellPoint } from '../library/CellGraphic'
 import React from 'react'
+import { CellGraphic, WorldCellPoint } from '../library/CellGraphic'
 import { Vector3, getNormalizedVector } from '../library/Vector3'
 import * as Wave from '../library/Wave'
+import {
+  InterposedRhythmGroupBaseStructure,
+  getNearestPrimes,
+  getPrimeContainer,
+  getPrimesRangeInclusive,
+} from 'clumsy-math'
+import {
+  rhythmGroupMaps,
+  rhythmSlotWeights,
+  throwInvalidPathError,
+} from '../library/miscellaneous'
+
+const containerA = getPrimeContainer(12)
+const containerHalfA = containerA / 2
+const baseDensitiesA = getPrimesRangeInclusive(containerHalfA, containerA)
+const terminalDensityA = getNearestPrimes(containerHalfA)[0]!
+const rhythmGroupMapsA = rhythmGroupMaps({
+  baseStructure: {
+    structureType: 'initial',
+    rhythmResolution: containerA,
+    subStructure:
+      baseDensitiesA.reduce<InterposedRhythmGroupBaseStructure | null>(
+        (result, someBaseDensity) => {
+          const nextResult: InterposedRhythmGroupBaseStructure =
+            result === null
+              ? {
+                  structureType: 'interposed',
+                  rhythmOrientation: 0,
+                  rhythmDensity: someBaseDensity,
+                }
+              : {
+                  structureType: 'interposed',
+                  rhythmOrientation: 0,
+                  rhythmDensity: someBaseDensity,
+                  subStructure: result,
+                }
+          return nextResult
+        },
+        null
+      ) ?? throwInvalidPathError('wtf?'),
+  },
+  memberStructure: {
+    structureType: 'terminal',
+    rhythmDensity: terminalDensityA,
+  },
+})
 
 const OrbAnimationModule: AnimationModule = {
   moduleName: 'Orb',
   getFrameDescription: getOrbFrameDescription,
-  frameCount: 48 * 3,
+  frameCount: rhythmGroupMapsA.length,
   frameSize: {
     width: 1024,
     height: 1024,
   },
   animationSettings: {
-    frameRate: 10,
+    frameRate: 5,
     constantRateFactor: 1,
   },
 }
@@ -29,95 +75,70 @@ async function getOrbFrameDescription(api: GetOrbFrameDescriptionApi) {
   const { frameIndex, frameCount } = api
   const frameStamp = frameIndex / frameCount
   const radiusA = 5
-  const depthResolution = 64
-  const polarResolution = 64
+  // const depthResolution = frameCount
+  // const polarResolution = frameCount
   const spherePointsA: Array<WorldCellPoint> = []
-  const depthAngleStep = Math.PI / (depthResolution - 1)
+
+  const depthCosine: PlaneComponentFunction = (someInputAngle) =>
+    Wave.cos(
+      Wave.point(
+        [[0.9, Wave.WAVE_ONE, 3 * 2 * Math.PI * frameStamp, 0, 0]],
+        someInputAngle
+      )
+    )
+  const depthSine: PlaneComponentFunction = (someInputAngle) =>
+    Wave.sin(
+      Wave.point(
+        [[0.9, Wave.WAVE_ONE, 3 * 2 * Math.PI * frameStamp, 0, 0]],
+        someInputAngle
+      )
+    )
+  const depthRhythmMap = rhythmGroupMapsA[frameIndex]
+  const depthAngleStep = Math.PI / (depthRhythmMap.rhythmResolution - 1)
+  const polarResolution = depthRhythmMap.rhythmResolution
   const polarAngleStep = (2 * Math.PI) / polarResolution
-  const depthFunctions: PlaneFunctions = [
-    (someInputAngle) =>
+  for (let _depthIndex of depthRhythmMap.rhythmPoints) {
+    const depthIndex =
+      (_depthIndex + frameIndex) % depthRhythmMap.rhythmResolution
+    const depthStamp = depthIndex / depthRhythmMap.rhythmResolution
+    const sliceCosine: PlaneComponentFunction = (someInputAngle) =>
       Wave.cos(
         Wave.point(
           [
-            [0.875, Wave.WAVE_ONE, 0, 0, 0],
-            [0.75, Wave.WAVE_ONE, 0, 0, 0],
+            [
+              0.9,
+              Wave.WAVE_ONE,
+              3 * 2 * Math.PI * frameStamp + Math.PI * depthStamp,
+              0,
+              0,
+            ],
           ],
-          someInputAngle
+          someInputAngle + Math.PI * depthStamp
         )
-      ),
-    (someInputAngle) =>
+      )
+    const sliceSine: PlaneComponentFunction = (someInputAngle) =>
       Wave.sin(
         Wave.point(
-          [
-            [0.875, Wave.WAVE_ONE, 0, 0, 0],
-            [0.75, Wave.WAVE_ONE, 0, 0, 0],
-          ],
-          someInputAngle
+          [[0.9, Wave.WAVE_ONE, 3 * 2 * Math.PI * frameStamp, 0, 0]],
+          someInputAngle + Math.PI * depthStamp
         )
-      ),
-  ]
-  for (let depthIndex = 0; depthIndex < depthResolution; depthIndex++) {
-    const depthStamp = depthIndex / depthResolution
-    const sliceFunctions: PlaneFunctions = [
-      (someInputAngle) =>
-        Wave.cos(
-          Wave.point(
-            [
-              [
-                0.875,
-                Wave.WAVE_ONE,
-                2 * Math.PI * frameStamp,
-                -2 * 2 * Math.PI * frameStamp,
-                0,
-              ],
-              [
-                0.75,
-                Wave.WAVE_ONE,
-                2 * 2 * Math.PI * frameStamp,
-                -2 * Math.PI * frameStamp,
-                0,
-              ],
-            ],
-            someInputAngle
-          )
-        ),
-      (someInputAngle) =>
-        Wave.sin(
-          Wave.point(
-            [
-              [
-                0.875,
-                Wave.WAVE_ONE,
-                2 * Math.PI * frameStamp,
-                -2 * 2 * Math.PI * frameStamp,
-                0,
-              ],
-              [
-                0.75,
-                Wave.WAVE_ONE,
-                2 * 2 * Math.PI * frameStamp,
-                -2 * Math.PI * frameStamp,
-                0,
-              ],
-            ],
-            someInputAngle
-          )
-        ),
-    ]
+      )
     for (let polarIndex = 0; polarIndex < polarResolution; polarIndex++) {
-      const basePoint = sphericalToCartesian(depthFunctions, sliceFunctions, [
-        radiusA,
-        depthIndex * depthAngleStep,
-        polarIndex * polarAngleStep,
-      ])
+      const basePoint = sphericalToCartesian(
+        depthCosine,
+        depthSine,
+        sliceCosine,
+        sliceSine,
+        [radiusA, depthIndex * depthAngleStep, polarIndex * polarAngleStep]
+      )
       const rotatedPoint = getRotatedCellVector(
-        // getNormalizedVector([1, 0, 0]),
+        // getNormalizedVector([1, 1, 0]),
         getNormalizedVector([
-          depthFunctions[1](8 * 2 * Math.PI * frameStamp) *
-            sliceFunctions[0](4 * 2 * Math.PI * frameStamp),
-          depthFunctions[1](8 * 2 * Math.PI * frameStamp) *
-            sliceFunctions[1](4 * 2 * Math.PI * frameStamp),
-          depthFunctions[0](8 * 2 * Math.PI * frameStamp),
+          depthSine(6 * 2 * Math.PI * frameStamp) *
+            depthCosine(0.75 * 2 * Math.PI * frameStamp),
+          depthSine(6 * 2 * Math.PI * frameStamp) *
+            depthSine(0.75 * 2 * Math.PI * frameStamp),
+          depthCosine(6 * 2 * Math.PI * frameStamp),
         ]),
         2 * Math.PI * frameStamp,
         basePoint
@@ -145,26 +166,23 @@ type SphericalCoordinate = [
 
 type CartesianCoordinate = [x: number, y: number, z: number]
 
-type PlaneFunctions = [
-  cosine: PlaneComponentFunction,
-  sine: PlaneComponentFunction
-]
-
 type PlaneComponentFunction = (someAngle: number) => number
 
 function sphericalToCartesian(
-  depthFunctions: PlaneFunctions,
-  sliceFunctions: PlaneFunctions,
+  depthCosine: PlaneComponentFunction,
+  depthSine: PlaneComponentFunction,
+  sliceCosine: PlaneComponentFunction,
+  sliceSine: PlaneComponentFunction,
   someSpherical: SphericalCoordinate
 ): CartesianCoordinate {
   return [
     someSpherical[0] *
-      depthFunctions[1](someSpherical[1]) *
-      sliceFunctions[0](someSpherical[2]),
+      depthSine(someSpherical[1]) *
+      sliceCosine(someSpherical[2]),
     someSpherical[0] *
-      depthFunctions[1](someSpherical[1]) *
-      sliceFunctions[1](someSpherical[2]),
-    someSpherical[0] * depthFunctions[0](someSpherical[1]),
+      depthSine(someSpherical[1]) *
+      sliceSine(someSpherical[2]),
+    someSpherical[0] * depthCosine(someSpherical[1]),
   ]
 }
 
