@@ -377,7 +377,7 @@ function getRotatedCellVector(
   ]
 }
 
-function getRhythmMatrixCoordinates(
+export function getRhythmMatrixCoordinates(
   someRhythmSlotWeights: ReturnType<typeof rhythmSlotWeights>
 ): Array<[number, number]> {
   const rhythmResolution = someRhythmSlotWeights.length
