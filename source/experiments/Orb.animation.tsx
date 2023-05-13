@@ -1,31 +1,18 @@
 import { AnimationModule } from 'clumsy-graphics'
 import React from 'react'
 import { CellGraphic, WorldCellPoint } from '../library/CellGraphic'
-import { Vector3, getNormalizedVector } from '../library/Vector3'
-import {
-  rhythmSlotWeights,
-  throwInvalidPathError,
-} from '../library/miscellaneous'
-import {
-  InterposedRhythmGroupBaseStructure,
-  getNearestPrimes,
-  getPrimeContainer,
-  getPrimesRangeInclusive,
-} from 'clumsy-math'
-import { getRhythmMatrixCoordinates } from './PlaneGrid.animation'
-
-const gridResolution = getPrimeContainer(12)
+import { Vector3 } from '../library/Vector3'
 
 const OrbAnimationModule: AnimationModule = {
   moduleName: 'Orb',
   getFrameDescription: getOrbFrameDescription,
-  frameCount: gridResolution,
+  frameCount: 48,
   frameSize: {
-    width: 2048,
-    height: 2048,
+    width: 1024,
+    height: 1024,
   },
   animationSettings: {
-    frameRate: 20,
+    frameRate: 10,
     constantRateFactor: 1,
   },
 }
@@ -40,122 +27,30 @@ interface GetOrbFrameDescriptionApi {
 async function getOrbFrameDescription(api: GetOrbFrameDescriptionApi) {
   const { frameIndex, frameCount } = api
   const frameStamp = frameIndex / frameCount
-  // const gridResolution = getPrimeContainer(6)
-  const gridResolutionHalf = Math.floor(gridResolution / 2)
-  const baseDensitiesA = getPrimesRangeInclusive(
-    gridResolutionHalf,
-    gridResolution
-  )
-  const terminalDensityA = getNearestPrimes(gridResolutionHalf)[0]!
-  const depthAngleStep = Math.PI / gridResolution / 16
-  const polarAngleStep = (2 * Math.PI) / gridResolution
-  const slotWeightsA = rhythmSlotWeights({
-    baseStructure: {
-      structureType: 'initial',
-      rhythmResolution: gridResolution,
-      subStructure: {
-        structureType: 'interposed',
-        rhythmOrientation: 0,
-        rhythmDensity: baseDensitiesA[3],
-      },
-      // subStructure:
-      //   // baseDensitiesA
-      //   //   .slice(3)
-      //     .reduce<InterposedRhythmGroupBaseStructure | null>(
-      //       (result, someBaseDensity) => {
-      //         const nextResult: InterposedRhythmGroupBaseStructure =
-      //           result === null
-      //             ? {
-      //                 structureType: 'interposed',
-      //                 rhythmOrientation: 0,
-      //                 rhythmDensity: someBaseDensity,
-      //               }
-      //             : {
-      //                 structureType: 'interposed',
-      //                 rhythmOrientation: 0,
-      //                 rhythmDensity: someBaseDensity,
-      //                 subStructure: result,
-      //               }
-      //         return nextResult
-      //       },
-      //       null
-      //     ) ?? throwInvalidPathError('wtf?'),
-    },
-    memberStructure: {
-      structureType: 'terminal',
-      rhythmDensity: terminalDensityA,
-    },
-  })
-  const cellCoordinates: Array<[row: number, column: number]> =
-    getRhythmMatrixCoordinates(
-      // slotWeightsA
-      slotWeightsA.map(
-        (_, slotIndex, baseWeights) =>
-          baseWeights[(slotIndex + frameIndex) % frameCount]
-      )
-    )
-  const spherePoints = cellCoordinates
-    .map<Array<WorldCellPoint>>((someCellCoordinate) => {
-      const basePointA = sphericalToCartesian(
-        Math.cos,
-        Math.sin,
-        Math.cos,
-        Math.sin,
-        [
-          8,
-          someCellCoordinate[1] * depthAngleStep,
-          someCellCoordinate[0] * polarAngleStep +
-            Math.PI / gridResolution +
-            Math.PI / 2,
-        ]
-      )
-      // const basePointB = sphericalToCartesian(
-      //   Math.cos,
-      //   Math.sin,
-      //   Math.cos,
-      //   Math.sin,
-      //   [5, someCellCoordinate[1] * depthAngleStep, Math.PI / 2]
-      // )
-      // const basePointC = sphericalToCartesian(
-      //   Math.cos,
-      //   Math.sin,
-      //   Math.cos,
-      //   Math.sin,
-      //   [10, someCellCoordinate[1] * depthAngleStep, 0]
-      // )
-      // const rotatedPoint = getRotatedCellVector(
-      //   getNormalizedVector([1, 0, 0]),
-      //   // getNormalizedVector([
-      //   //   Math.sin(1 * 2 * Math.PI * frameStamp) *
-      //   //     Math.cos(1 * 2 * Math.PI * frameStamp),
-      //   //   Math.sin(1 * 2 * Math.PI * frameStamp) *
-      //   //     Math.sin(1 * 2 * Math.PI * frameStamp),
-      //   //   Math.cos(1 * 2 * Math.PI * frameStamp),
-      //   // ]),
-      //   2 * Math.PI * frameStamp,
-      //   basePointA
-      // )
-      // rotatedPoint[2] = rotatedPoint[2] + 5 / 2
-      return [
-        // [...basePointB, 0.1, 'red'],
-        // [...basePointC, 0.1, 'red'],
-        [...basePointA, 0.03, 'white'],
+  const depthResolution = 256
+  const depthAngleStep = Math.PI / depthResolution
+  const spherePoints: Array<WorldCellPoint> = []
+  for (let i = 0; i < depthResolution; i++) {
+    const basePointA = sphericalToCartesian(
+      Math.cos,
+      Math.sin,
+      Math.cos,
+      Math.sin,
+      [
+        5,
+        i * depthAngleStep + 2 * Math.PI * frameStamp,
+        2 *
+          Math.PI *
+          frameStamp *
+          Math.sin(1 * ((2 * Math.PI) / depthResolution) * i) *
+          (Math.PI / 4) *
+          Math.sin(1 * ((2 * Math.PI) / depthResolution) * i) +
+          // (Math.PI / 16) * Math.sin(2 * Math.PI * frameStamp) +
+          Math.PI / 2,
       ]
-    })
-    .flat()
-  // const fooPoints: Array<WorldCellPoint> = [
-  //   [0, 0, 0, 0.2, 'white'],
-  //   [0, 1, 0, 0.2, 'orange'],
-  //   [
-  //     ...sphericalToCartesian(Math.cos, Math.sin, Math.cos, Math.sin, [
-  //       1,
-  //       Math.PI / 8,
-  //       Math.PI / 2,
-  //     ]),
-  //     0.2,
-  //     'yellow',
-  //   ],
-  // ]
+    )
+    spherePoints.push([...basePointA, 0.05, 'white'])
+  }
   return (
     <CellGraphic
       cameraDepth={-10}
