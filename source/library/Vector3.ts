@@ -1,6 +1,6 @@
 export type Vector3 = [number, number, number]
 
-export function getCrossProduct(vectorA: Vector3, vectorB: Vector3): Vector3 {
+export function crossProduct(vectorA: Vector3, vectorB: Vector3): Vector3 {
   return [
     vectorA[1] * vectorB[2] - vectorA[2] * vectorB[1],
     vectorA[2] * vectorB[0] - vectorA[0] * vectorB[2],
@@ -8,13 +8,13 @@ export function getCrossProduct(vectorA: Vector3, vectorB: Vector3): Vector3 {
   ]
 }
 
-export function getDotProduct(vectorA: Vector3, vectorB: Vector3): number {
+export function dotProduct(vectorA: Vector3, vectorB: Vector3): number {
   return (
     vectorA[0] * vectorB[0] + vectorA[1] * vectorB[1] + vectorA[2] * vectorB[2]
   )
 }
 
-export function getVectorMagnitude(someVector: Vector3): number {
+export function vectorMagnitude(someVector: Vector3): number {
   return Math.sqrt(
     someVector[0] * someVector[0] +
       someVector[1] * someVector[1] +
@@ -22,16 +22,16 @@ export function getVectorMagnitude(someVector: Vector3): number {
   )
 }
 
-export function getNormalizedVector(someVector: Vector3): Vector3 {
-  const vectorMagnitude = getVectorMagnitude(someVector)
+export function normalizedVector(someVector: Vector3): Vector3 {
+  const magnitudeA = vectorMagnitude(someVector)
   return [
-    someVector[0] / vectorMagnitude,
-    someVector[1] / vectorMagnitude,
-    someVector[2] / vectorMagnitude,
+    someVector[0] / magnitudeA,
+    someVector[1] / magnitudeA,
+    someVector[2] / magnitudeA,
   ]
 }
 
-export function getScaledVector(
+export function scaledVector(
   someVector: Vector3,
   vectorScalar: number
 ): Vector3 {

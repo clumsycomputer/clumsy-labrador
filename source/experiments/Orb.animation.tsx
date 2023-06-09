@@ -1,7 +1,15 @@
 import { AnimationModule } from 'clumsy-graphics'
+import {
+  LOOP_ONE,
+  LoopStructure,
+  loopCosine,
+  loopPendulum,
+  loopPoint,
+  loopSine,
+} from 'clumsy-math'
 import React from 'react'
 import { CellGraphic, WorldCellPoint } from '../library/CellGraphic'
-import { Vector3 } from '../library/Vector3'
+import { Vector3, normalizedVector } from '../library/Vector3'
 
 const OrbAnimationModule: AnimationModule = {
   moduleName: 'Orb',
@@ -27,38 +35,52 @@ interface GetOrbFrameDescriptionApi {
 async function getOrbFrameDescription(api: GetOrbFrameDescriptionApi) {
   const { frameIndex, frameCount } = api
   const frameStamp = frameIndex / frameCount
-  const depthResolution = 256
-  const depthAngleStep = Math.PI / depthResolution
-  const spherePoints: Array<WorldCellPoint> = []
-  for (let i = 0; i < depthResolution; i++) {
-    const basePointA = sphericalToCartesian(
-      Math.cos,
-      Math.sin,
-      Math.cos,
-      Math.sin,
-      [
-        5,
-        i * depthAngleStep + 2 * Math.PI * frameStamp,
-        2 *
-          Math.PI *
-          frameStamp *
-          Math.sin(1 * ((2 * Math.PI) / depthResolution) * i) *
-          (Math.PI / 4) *
-          Math.sin(1 * ((2 * Math.PI) / depthResolution) * i) +
-          // (Math.PI / 16) * Math.sin(2 * Math.PI * frameStamp) +
-          Math.PI / 2,
-      ]
-    )
-    spherePoints.push([...basePointA, 0.05, 'white'])
+  const orbPoints: Array<WorldCellPoint> = []
+  const orbResolution = 128
+  const rotationAngle = 2 * Math.PI * frameStamp
+  const depthAngleStep = Math.PI / orbResolution
+  const sliceDepthPhaseStep = Math.PI / orbResolution
+  const sliceAngleStep = (2 * Math.PI) / orbResolution
+  const loopStructureA: LoopStructure = [
+    [0.9, LOOP_ONE, rotationAngle, 0, 0],
+    [0.9, LOOP_ONE, normalizedAngle(-2 * rotationAngle), 0, 0],
+  ]
+  const depthCosine = (inputAngle: number) =>
+    10 * loopPendulum(loopPoint(loopStructureA, inputAngle))
+  const depthSine = (inputAngle: number) =>
+    10 *
+    loopPendulum(loopPoint(loopStructureA, normalizedAngle(2 * inputAngle)))
+  const sliceCosine = (inputAngle: number) =>
+    loopCosine(loopPoint(loopStructureA, inputAngle))
+  const sliceSine = (inputAngle: number) =>
+    loopSine(loopPoint(loopStructureA, inputAngle))
+  for (let depthIndex = 0; depthIndex < orbResolution; depthIndex++) {
+    for (let sliceIndex = 0; sliceIndex < orbResolution; sliceIndex++) {
+      orbPoints.push([
+        ...rotatedCellVector(
+          normalizedVector([1, 0, 0]),
+          normalizedAngle(2 * rotationAngle),
+          sphericalToCartesian(depthCosine, depthSine, sliceCosine, sliceSine, [
+            8,
+            depthIndex * depthAngleStep,
+            (sliceIndex * sliceAngleStep +
+              (Math.PI / orbResolution) * depthIndex) %
+              (2 * Math.PI),
+          ])
+        ),
+        0.1,
+        'white',
+      ])
+    }
   }
   return (
     <CellGraphic
-      cameraDepth={-10}
+      cameraDepth={-15}
       lightDepth={100}
       perspectiveDepthFar={100}
       perspectiveDepthNear={0.1}
       perspectiveVerticalFieldOfViewAngle={(1.75 / 3) * Math.PI}
-      worldCellPoints={[...spherePoints]}
+      worldCellPoints={[...orbPoints]}
     />
   )
 }
@@ -80,18 +102,15 @@ function sphericalToCartesian(
   sliceSine: PlaneComponentFunction,
   someSpherical: SphericalCoordinate
 ): CartesianCoordinate {
+  const currentDepthSine = depthSine(someSpherical[1])
   return [
-    someSpherical[0] *
-      depthSine(someSpherical[1]) *
-      sliceCosine(someSpherical[2]),
-    someSpherical[0] *
-      depthSine(someSpherical[1]) *
-      sliceSine(someSpherical[2]),
+    someSpherical[0] * currentDepthSine * sliceCosine(someSpherical[2]),
+    someSpherical[0] * currentDepthSine * sliceSine(someSpherical[2]),
     someSpherical[0] * depthCosine(someSpherical[1]),
   ]
 }
 
-function getRotatedCellVector(
+function rotatedCellVector(
   unitRotationAxis: Vector3,
   rotationAngle: number,
   baseVector: Vector3
@@ -130,87 +149,6 @@ function getRotatedCellVector(
   ]
 }
 
-// const { frameIndex, frameCount } = api
-// const frameStamp = frameIndex / frameCount
-// const radiusA = 5
-// // const depthResolution = frameCount
-// // const polarResolution = frameCount
-// const spherePointsA: Array<WorldCellPoint> = []
-
-// const depthCosine: PlaneComponentFunction = (someInputAngle) =>
-//   Wave.cos(
-//     Wave.point(
-//       [[0.9, Wave.WAVE_ONE, 3 * 2 * Math.PI * frameStamp, 0, 0]],
-//       someInputAngle
-//     )
-//   )
-// const depthSine: PlaneComponentFunction = (someInputAngle) =>
-//   Wave.sin(
-//     Wave.point(
-//       [[0.9, Wave.WAVE_ONE, 3 * 2 * Math.PI * frameStamp, 0, 0]],
-//       someInputAngle
-//     )
-//   )
-// const depthRhythmMap = rhythmGroupMapsA[frameIndex]
-// const depthAngleStep = Math.PI / (depthRhythmMap.rhythmResolution - 1)
-// const polarResolution = depthRhythmMap.rhythmResolution
-// const polarAngleStep = (2 * Math.PI) / polarResolution
-// for (let _depthIndex of depthRhythmMap.rhythmPoints) {
-//   const depthIndex =
-//     (_depthIndex + frameIndex) % depthRhythmMap.rhythmResolution
-//   const depthStamp = depthIndex / depthRhythmMap.rhythmResolution
-//   const sliceCosine: PlaneComponentFunction = (someInputAngle) =>
-//     Wave.cos(
-//       Wave.point(
-//         [
-//           [
-//             0.9,
-//             Wave.WAVE_ONE,
-//             3 * 2 * Math.PI * frameStamp + Math.PI * depthStamp,
-//             0,
-//             0,
-//           ],
-//         ],
-//         someInputAngle + Math.PI * depthStamp
-//       )
-//     )
-//   const sliceSine: PlaneComponentFunction = (someInputAngle) =>
-//     Wave.sin(
-//       Wave.point(
-//         [[0.9, Wave.WAVE_ONE, 3 * 2 * Math.PI * frameStamp, 0, 0]],
-//         someInputAngle + Math.PI * depthStamp
-//       )
-//     )
-//   for (let polarIndex = 0; polarIndex < polarResolution; polarIndex++) {
-//     const basePoint = sphericalToCartesian(
-//       depthCosine,
-//       depthSine,
-//       sliceCosine,
-//       sliceSine,
-//       [radiusA, depthIndex * depthAngleStep, polarIndex * polarAngleStep]
-//     )
-//     const rotatedPoint = getRotatedCellVector(
-//       // getNormalizedVector([1, 1, 0]),
-//       getNormalizedVector([
-//         depthSine(6 * 2 * Math.PI * frameStamp) *
-//           depthCosine(0.75 * 2 * Math.PI * frameStamp),
-//         depthSine(6 * 2 * Math.PI * frameStamp) *
-//           depthSine(0.75 * 2 * Math.PI * frameStamp),
-//         depthCosine(6 * 2 * Math.PI * frameStamp),
-//       ]),
-//       2 * Math.PI * frameStamp,
-//       basePoint
-//     )
-//     spherePointsA.push([...rotatedPoint, 0.04, 'white'])
-//   }
-// }
-// return (
-//   <CellGraphic
-//     cameraDepth={-10}
-//     lightDepth={30}
-//     perspectiveDepthFar={100}
-//     perspectiveDepthNear={0.1}
-//     perspectiveVerticalFieldOfViewAngle={(1.75 / 3) * Math.PI}
-//     worldCellPoints={[...spherePointsA]}
-//   />
-// )
+function normalizedAngle(someAngle: number) {
+  return ((someAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)
+}
