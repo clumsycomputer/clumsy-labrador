@@ -2,13 +2,16 @@ import { AnimationModule } from 'clumsy-graphics'
 import {
   AlignedSpacerStructure,
   loopCosine,
+  loopPendulum,
   loopPoint,
   loopSine,
   LoopStructure,
+  LOOP_ZERO,
   phasedSpacer,
   spacer,
   Spacer,
   spacerGroup,
+  spacerIntervals,
   spacerLineage,
   SpacerPoint,
   SpacerSlotWeight,
@@ -24,13 +27,13 @@ import { normalizedVector, rotatedVector, Vector3 } from '../library/Vector3'
 const BoxAnimationModule: AnimationModule = {
   moduleName: 'Box',
   getFrameDescription: getBoxFrameDescription,
-  frameCount: 42 * 8,
+  frameCount: 64 * 8,
   frameSize: {
-    width: 1024 * 6,
-    height: 1024 * 6,
+    width: 1024 * 1,
+    height: 1024 * 1,
   },
   animationSettings: {
-    frameRate: 7,
+    frameRate: 15,
     constantRateFactor: 1,
   },
 }
@@ -46,238 +49,128 @@ async function getBoxFrameDescription(props: GetBoxFrameDescriptionProps) {
   const { frameIndex, frameCount } = props
   const frameStamp = frameIndex / frameCount
   const frameAngle = 2 * Math.PI * frameStamp
-  const cameraDepth = -10
-  const ringSpacerA = spacer([12, [5, 0]])
+  const cameraDepth = -7.5
+  const ringSpacerA = phasedSpacer(
+    spacer([
+      12,
+      [11, spacerResolutionMap(frameCount, 11)[frameIndex]],
+      [7, spacerResolutionMap(frameCount, 7)[frameIndex]],
+      [5, spacerResolutionMap(frameCount, 5)[frameIndex]],
+      [3, spacerResolutionMap(frameCount, 3)[frameIndex]],
+    ]),
+    spacerResolutionMap(frameCount, 12)[frameIndex]
+  )
+  // const ringColormap = [
+  //   'rgb(212,214,174)',
+  //   'rgb(216,179,189)',
+  //   'rgb(174,222,191)',
+  //   'rgb(61,218,183)',
+  //   'rgb(4,183,192)',
+  // ]
   const ringColormap = [
-    'rgb(212,214,174)',
-    'rgb(216,179,189)',
-    'rgb(174,222,191)',
-    'rgb(61,218,183)',
-    'rgb(4,183,192)',
+    'rgb(188,44,6)',
+    'rgb(192,92,21)',
+    'rgb(255,160,75)',
+    'rgb(255,210,109)',
+    'rgb(253,245,192)',
   ]
-  const ringCellPointsA = getRingCells({
-    ringRadius: 2,
+  const colorPhaseMap = spacerResolutionMap(
+    frameCount,
+    frameCount - (frameCount % ringColormap.length)
+  )
+  const depthDensity = 60
+  const beeCellsA = getBeeCells({
+    renderOverlay: true,
+    ringRadius: 4,
+    baseSliceResolution: 30,
+    overlaySliceResolution: 18,
     ringDepth: -cameraDepth,
     ringSpacer: ringSpacerA,
-    ringSymmetricWeights: spacerSymmetricSlotWeights(ringSpacerA),
-    getDepthSpacer: ({ ringWeight, ringMaxWeight }) => {
-      const depthDensity = 19
-      const ringDepthSpacer = spacer([depthDensity, [ringMaxWeight!, 0]])
-      return phasedSpacer(
-        spacer([
-          frameCount,
-          [31, 0],
-          [29, 0],
-          [23, 0],
-          [
-            depthDensity,
-            ringDepthSpacer[1][ringWeight! % ringDepthSpacer[1].length],
-          ],
-        ]),
-        frameIndex
-      )
-    },
-    getDepthWeights: ({ ringWeight, ringMaxWeight }) => {
-      const depthDensity = 19
-      const ringDepthSpacer = spacer([depthDensity, [ringMaxWeight!, 0]])
-      return spacerTerminalSlotWeights([
-        frameCount,
-        [31, 0],
-        [29, 0],
-        [23, 0],
-        [
-          depthDensity,
-          ringDepthSpacer[1][ringWeight! % ringDepthSpacer[1].length],
-        ],
+    rotationAngle: normalizedAngle(1 * frameAngle),
+    ringSymmetricWeights: spacerSymmetricSlotWeights(
+      spacer([
+        12,
+        [11, spacerResolutionMap(frameCount, 11)[frameIndex]],
+        [7, spacerResolutionMap(frameCount, 7)[frameIndex]],
+        [5, spacerResolutionMap(frameCount, 5)[frameIndex]],
       ])
-      //   return spacerTerminalSlotWeights([
-      //     18,
-      //     [17, 0],
-      //     [13, 0],
-      //     [11, 0],
-      //     [7, 0],
-      //     [5, 0],
-      //   ])
-    },
-    getDepthLoopStructure: ({ ringAngle }) => [
-      [0.95, 0.95, ringAngle!, 0, 0],
-      [0.875, 0.875, normalizedAngle(-2 * ringAngle!), 0, 0],
-      [0.75, 0.75, normalizedAngle(4 * ringAngle!), 0, 0],
+    ),
+    getDepthSpacerStructure: () => [
+      depthDensity,
+      [29, spacerResolutionMap(frameCount, 29)[frameIndex]],
     ],
-    getSliceSpacerStructure: () => [30, [30, 0]],
-    getSliceSymmetricWeights: ({ sliceSpacer }) =>
-      spacerSymmetricSlotWeights(sliceSpacer!),
-    getSliceLoopStructure: ({ ringAngle }) => [
-      [0.95, 0.95, ringAngle!, normalizedAngle(-frameAngle), frameAngle],
-      [
-        0.875,
-        0.875,
-        normalizedAngle(-2 * ringAngle!),
-        normalizedAngle(2 * frameAngle),
-        0,
-      ],
-      [
-        0.75,
-        0.75,
-        normalizedAngle(4 * ringAngle!),
-        normalizedAngle(-4 * frameAngle),
-        0,
-      ],
-    ],
-    getSliceRadius: ({ depthRelativeWeight, ringRelativeWeight }) => {
-      return ringRelativeWeight! + depthRelativeWeight! * 4 + 4
-    },
-    getSlicePhase: ({ depthSpacer, depthPoint }) =>
-      (Math.PI / depthSpacer![0]) * depthPoint!,
-    getOrientationPhase: ({ ringWeight, ringRelativeWeight }) =>
-      ringWeight! * frameAngle + (1 - ringRelativeWeight!) * Math.PI,
-    getCellSize: ({ ringRelativeWeight }) => ringRelativeWeight! * 0.45,
-    getCellColor: ({ ringWeight }) => ringColormap[ringWeight! - 1],
-    getTransformedCellPoint: (
-      orientedCellPoint,
-      {
-        depthCosine,
-        depthSine,
-        sliceCosine,
-        sliceSine,
-        ringRelativeWeight,
-        depthAngle,
-        sliceAngle,
-        depthSpacer,
-        depthPoint,
-        depthRelativeWeight,
-        sliceLoopStructure,
-      }
-    ) =>
-      rotatedVector(
-        sphericalToCartesian(
-          depthCosine!,
-          depthSine!,
-          sliceCosine!,
-          sliceSine!,
-          [
-            ringRelativeWeight! + 0.125,
-            depthAngle!,
-            normalizedAngle(
-              sliceAngle! + (Math.PI / depthSpacer![0]) * depthPoint!
-            ),
-          ]
-        ),
-        frameAngle,
-        orientedCellPoint
-      ),
-  })
-  const ringCellPointsB = getRingCells({
-    ringRadius: 2,
-    ringDepth: -cameraDepth,
-    ringSpacer: ringSpacerA,
-    ringSymmetricWeights: spacerSymmetricSlotWeights(ringSpacerA),
-    getDepthSpacer: ({ ringWeight, ringMaxWeight }) => {
-      const depthDensity = 19
-      const ringDepthSpacer = spacer([depthDensity, [ringMaxWeight!, 0]])
-      return phasedSpacer(
-        spacer([
-          frameCount,
-          [31, 0],
-          [29, 0],
-          [23, 0],
-          [
-            depthDensity,
-            ringDepthSpacer[1][ringWeight! % ringDepthSpacer[1].length],
-          ],
-        ]),
-        frameIndex
-      )
-    },
-    getDepthWeights: ({ ringWeight, ringMaxWeight }) => {
-      const depthDensity = 19
-      const ringDepthSpacer = spacer([depthDensity, [ringMaxWeight!, 0]])
-      return spacerTerminalSlotWeights([
-        frameCount,
-        [31, 0],
-        [29, 0],
-        [23, 0],
+    getDepthSpacerPhase: () =>
+      spacerResolutionMap(frameCount, depthDensity)[frameIndex],
+    getDepthLoopStructure: ({ ringAngle }) => {
+      const relativeRingAngle = (ringAngle! / 2) * Math.PI
+      const baseDepthRange = 0.1
+      return [
         [
-          depthDensity,
-          ringDepthSpacer[1][ringWeight! % ringDepthSpacer[1].length],
+          0.95,
+          baseDepthRange * relativeRingAngle + LOOP_ZERO,
+          ringAngle!,
+          0,
+          0,
         ],
-      ])
-      //   return spacerTerminalSlotWeights([
-      //     18,
-      //     [17, 0],
-      //     [13, 0],
-      //     [11, 0],
-      //     [7, 0],
-      //     [5, 0],
-      //   ])
+        [
+          0.9,
+          baseDepthRange * relativeRingAngle +
+            1 * baseDepthRange * relativeRingAngle +
+            LOOP_ZERO,
+          normalizedAngle(-2 * ringAngle!),
+          0,
+          0,
+        ],
+        [
+          0.825,
+          baseDepthRange * relativeRingAngle +
+            1 * baseDepthRange * relativeRingAngle +
+            LOOP_ZERO,
+          normalizedAngle(4 * ringAngle!),
+          0,
+          0,
+        ],
+      ]
     },
-    getDepthLoopStructure: ({ ringAngle }) => [
-      [0.95, 0.95, ringAngle!, 0, 0],
-      [0.875, 0.875, normalizedAngle(-2 * ringAngle!), 0, 0],
-      [0.75, 0.75, normalizedAngle(4 * ringAngle!), 0, 0],
-    ],
-    getSliceSpacerStructure: () => [18, [18, 0]],
-    getSliceSymmetricWeights: ({ sliceSpacer }) =>
-      spacerSymmetricSlotWeights(sliceSpacer!),
-    getSliceLoopStructure: ({ ringAngle }) => [
-      [0.95, 0.95, ringAngle!, normalizedAngle(-frameAngle), frameAngle],
-      [
-        0.875,
-        0.875,
-        normalizedAngle(-2 * ringAngle!),
-        normalizedAngle(2 * frameAngle),
-        0,
-      ],
-      [
-        0.75,
-        0.75,
-        normalizedAngle(4 * ringAngle!),
-        normalizedAngle(-4 * frameAngle),
-        0,
-      ],
-    ],
-    getSliceRadius: ({ depthRelativeWeight, ringRelativeWeight }) => {
-      return ringRelativeWeight! + depthRelativeWeight! * 4 + 4
+    getSliceLoopStructure: ({ ringAngle }) => {
+      const relativeRingAngle = (ringAngle! / 2) * Math.PI
+      const baseDepthRange = 0.1
+      return [
+        [
+          0.95,
+          baseDepthRange * relativeRingAngle + LOOP_ZERO,
+          ringAngle!,
+          frameAngle,
+          0,
+        ],
+        [
+          0.9,
+          baseDepthRange * relativeRingAngle +
+            1 * baseDepthRange * relativeRingAngle +
+            LOOP_ZERO,
+          normalizedAngle(-2 * ringAngle!),
+          normalizedAngle(2 * frameAngle),
+          0,
+        ],
+        [
+          0.825,
+          baseDepthRange * relativeRingAngle +
+            1 * baseDepthRange * relativeRingAngle +
+            LOOP_ZERO,
+          normalizedAngle(4 * ringAngle!),
+          normalizedAngle(-4 * frameAngle),
+          0,
+        ],
+      ]
     },
-    getSlicePhase: ({ depthSpacer, depthPoint }) =>
-      (Math.PI / depthSpacer![0]) * depthPoint!,
-    getOrientationPhase: ({ ringWeight, ringRelativeWeight }) =>
-      ringWeight! * frameAngle + (1 - ringRelativeWeight!) * Math.PI,
-    getCellSize: ({ ringRelativeWeight }) => ringRelativeWeight! * 0.4,
-    getCellColor: ({ ringWeight }) => 'black',
-    getTransformedCellPoint: (
-      orientedCellPoint,
-      {
-        depthCosine,
-        depthSine,
-        sliceCosine,
-        sliceSine,
-        ringRelativeWeight,
-        depthAngle,
-        sliceAngle,
-        depthSpacer,
-        depthPoint,
-        depthRelativeWeight,
-        sliceLoopStructure,
-      }
-    ) =>
-      rotatedVector(
-        sphericalToCartesian(
-          depthCosine!,
-          depthSine!,
-          sliceCosine!,
-          sliceSine!,
-          [
-            ringRelativeWeight! + 0.13,
-            depthAngle!,
-            normalizedAngle(
-              sliceAngle! + (Math.PI / depthSpacer![0]) * depthPoint!
-            ),
-          ]
-        ),
-        frameAngle,
-        orientedCellPoint
-      ),
+    getSliceRadius: ({ depthRelativeWeight }) => 2 * depthRelativeWeight! + 2,
+    getSliceTransformedAngle: ({ sliceAngle, depthSpacer, depthPoint }) =>
+      440 * sliceAngle! + (Math.PI / depthSpacer![0]) * depthPoint!,
+    getBaseCellColor: () => ringColormap[4],
+    getBaseCellSize: () => 0.0875,
+    getOverlayCellSize: () => 0.075,
+    getBaseRotationRadius: ({ ringRelativeWeight }) => 1,
+    getOverlayRotationRadius: ({ ringRelativeWeight }) => 1.01,
   })
   return (
     <CellGraphic
@@ -286,9 +179,148 @@ async function getBoxFrameDescription(props: GetBoxFrameDescriptionProps) {
       perspectiveDepthNear={0.1}
       perspectiveVerticalFieldOfViewAngle={(1.75 / 3) * Math.PI}
       cameraDepth={cameraDepth}
-      worldCellPoints={[...ringCellPointsA, ...ringCellPointsB]}
+      worldCellPoints={beeCellsA}
     />
   )
+}
+
+interface GetBeeCellsApi
+  extends Pick<
+    GetRingCellsApi,
+    | 'ringDepth'
+    | 'ringRadius'
+    | 'ringSpacer'
+    | 'ringSymmetricWeights'
+    | 'getDepthSpacerStructure'
+    | 'getDepthSpacerPhase'
+    | 'getDepthLoopStructure'
+    | 'getSliceRadius'
+    | 'getSliceTransformedAngle'
+    | 'getSliceLoopStructure'
+  > {
+  renderOverlay: boolean
+  baseSliceResolution: number
+  overlaySliceResolution: number
+  rotationAngle: number
+  getBaseRotationRadius: (ringData: RingData) => number
+  getOverlayRotationRadius: (ringData: RingData) => number
+  getBaseCellColor: (ringData: RingData) => string
+  getBaseCellSize: (ringData: RingData) => number
+  getOverlayCellSize: (ringData: RingData) => number
+}
+
+function getBeeCells(api: GetBeeCellsApi): Array<WorldCellPoint> {
+  const {
+    ringRadius,
+    ringDepth,
+    ringSpacer,
+    ringSymmetricWeights,
+    getDepthSpacerStructure,
+    getDepthSpacerPhase,
+    getDepthLoopStructure,
+    getSliceLoopStructure,
+    getSliceRadius,
+    getSliceTransformedAngle,
+    baseSliceResolution,
+    getBaseRotationRadius,
+    getBaseCellColor,
+    getBaseCellSize,
+    rotationAngle,
+    renderOverlay,
+    overlaySliceResolution,
+    getOverlayRotationRadius,
+    getOverlayCellSize,
+  } = api
+  const baseCells = getRingCells({
+    ringRadius,
+    ringDepth,
+    ringSpacer,
+    ringSymmetricWeights,
+    getDepthSpacerStructure,
+    getDepthSpacerPhase,
+    getDepthLoopStructure,
+    getSliceLoopStructure,
+    getSliceRadius,
+    getSliceTransformedAngle,
+    getCellSize: getBaseCellSize,
+    getCellColor: getBaseCellColor,
+    getSliceSpacerStructure: () => [
+      baseSliceResolution,
+      [baseSliceResolution, 0],
+    ],
+    getSliceSymmetricWeights: ({ sliceSpacer }) =>
+      spacerSymmetricSlotWeights(sliceSpacer!),
+    getOrientationPhase: ({ ringWeight, ringRelativeWeight }) =>
+      ringWeight! * rotationAngle + (1 - ringRelativeWeight!) * Math.PI,
+    getTransformedCellPoint: (orientedCellPoint, ringData) => {
+      const {
+        depthCosine,
+        depthSine,
+        sliceCosine,
+        sliceSine,
+        depthAngle,
+        sliceAngle,
+      } = ringData
+      return rotatedVector(
+        sphericalToCartesian(
+          depthCosine!,
+          depthSine!,
+          sliceCosine!,
+          sliceSine!,
+          [getBaseRotationRadius(ringData), depthAngle!, sliceAngle!]
+        ),
+        rotationAngle,
+        orientedCellPoint
+      )
+    },
+  })
+  let overlayCells: Array<WorldCellPoint> = []
+  if (renderOverlay) {
+    overlayCells = getRingCells({
+      ringRadius,
+      ringDepth,
+      ringSpacer,
+      ringSymmetricWeights,
+      getDepthSpacerStructure,
+      getDepthSpacerPhase,
+      getDepthLoopStructure,
+      getSliceLoopStructure,
+      getSliceRadius,
+      getSliceTransformedAngle,
+      getCellSize: getOverlayCellSize,
+      getCellColor: () => 'black',
+      getSliceSpacerStructure: () => [
+        overlaySliceResolution,
+        [overlaySliceResolution, 0],
+      ],
+      getSliceSymmetricWeights: ({ sliceSpacer }) =>
+        spacerSymmetricSlotWeights(sliceSpacer!),
+      getOrientationPhase: ({ ringWeight, ringRelativeWeight }) =>
+        ringWeight! * rotationAngle + (1 - ringRelativeWeight!) * Math.PI,
+      getTransformedCellPoint: (orientedCellPoint, ringData) => {
+        const {
+          depthCosine,
+          depthSine,
+          sliceCosine,
+          sliceSine,
+          depthAngle,
+          sliceAngle,
+        } = ringData
+        return rotatedVector(
+          sphericalToCartesian(
+            depthCosine!,
+            depthSine!,
+            sliceCosine!,
+            sliceSine!,
+            [getOverlayRotationRadius(ringData), depthAngle!, sliceAngle!]
+          ),
+          rotationAngle,
+          orientedCellPoint
+        )
+      },
+    })
+  }
+  return [...baseCells, ...overlayCells]
 }
 
 interface GetRingCellsApi {
@@ -296,14 +328,14 @@ interface GetRingCellsApi {
   ringRadius: number
   ringSpacer: Spacer
   ringSymmetricWeights: Array<SpacerSlotWeight>
-  getDepthSpacer: (ringData: RingData) => Spacer
-  getDepthWeights: (ringData: RingData) => Array<SpacerSlotWeight>
+  getDepthSpacerStructure: (ringData: RingData) => AlignedSpacerStructure
+  getDepthSpacerPhase: (ringData: RingData) => number
   getDepthLoopStructure: (ringData: RingData) => LoopStructure
   getSliceSpacerStructure: (ringData: RingData) => AlignedSpacerStructure
   getSliceSymmetricWeights: (ringData: RingData) => Array<SpacerSlotWeight>
   getSliceLoopStructure: (ringData: RingData) => LoopStructure
   getSliceRadius: (ringData: RingData) => number
-  getSlicePhase: (ringData: RingData) => number
+  getSliceTransformedAngle: (ringData: RingData) => number
   getOrientationPhase: (ringData: RingData) => number
   getTransformedCellPoint: (
     orientedCellPoint: Point3,
@@ -323,6 +355,7 @@ interface RingData {
   ringAngle?: number
   ringOrientationAxis?: Vector3
   depthSpacerStructure?: AlignedSpacerStructure
+  depthSpacerPhase?: number
   depthSpacer?: Spacer
   depthWeights?: Array<SpacerSlotWeight>
   depthMaxWeight?: SpacerSlotWeight
@@ -334,6 +367,10 @@ interface RingData {
   depthWeight?: SpacerSlotWeight
   depthRelativeWeight?: number
   sliceAngle?: number
+  sliceTransformedAngle?: number
+  sliceMaxWeight?: number
+  sliceWeight?: number
+  sliceRelativeWeight?: number
   sliceSpacerStructure?: AlignedSpacerStructure
   sliceSpacer?: Spacer
   sliceSymmetricWeights?: Array<SpacerSlotWeight>
@@ -347,14 +384,14 @@ function getRingCells(api: GetRingCellsApi): Array<WorldCellPoint> {
     ringSpacer,
     ringSymmetricWeights,
     ringRadius,
-    getDepthSpacer,
-    getDepthWeights,
+    getDepthSpacerStructure,
+    getDepthSpacerPhase,
     getDepthLoopStructure,
     getSliceSpacerStructure,
     getSliceSymmetricWeights,
     getSliceLoopStructure,
+    getSliceTransformedAngle,
     getSliceRadius,
-    getSlicePhase,
     ringDepth,
     getOrientationPhase,
     getTransformedCellPoint,
@@ -382,8 +419,15 @@ function getRingCells(api: GetRingCellsApi): Array<WorldCellPoint> {
     ringData.ringOrientationAxis = normalizedVector(
       rotatedVector([0, 0, 1], ringData.ringAngle, [1, 0, 0])
     )
-    ringData.depthSpacer = getDepthSpacer(ringData)
-    ringData.depthWeights = getDepthWeights(ringData)
+    ringData.depthSpacerStructure = getDepthSpacerStructure(ringData)
+    ringData.depthSpacerPhase = getDepthSpacerPhase(ringData)
+    ringData.depthSpacer = phasedSpacer(
+      spacer(ringData.depthSpacerStructure),
+      ringData.depthSpacerPhase
+    )
+    ringData.depthWeights = spacerTerminalSlotWeights(
+      ringData.depthSpacerStructure
+    )
     ringData.depthMaxWeight = ringData.depthWeights[0]
     const depthAngleStep = Math.PI / ringData.depthSpacer[0]
     ringData.depthLoopStructure = getDepthLoopStructure(ringData)
@@ -400,20 +444,25 @@ function getRingCells(api: GetRingCellsApi): Array<WorldCellPoint> {
       ringData.sliceSpacerStructure = getSliceSpacerStructure(ringData)
       ringData.sliceSpacer = spacer(ringData.sliceSpacerStructure)
       ringData.sliceSymmetricWeights = getSliceSymmetricWeights(ringData)
+      ringData.sliceMaxWeight = ringData.sliceSymmetricWeights[0]
       const sliceAngleStep = (2 * Math.PI) / ringData.sliceSpacer[0]
       ringData.sliceLoopStructure = getSliceLoopStructure(ringData)
-      ringData.sliceCosine = (cellAngle: number) =>
-        loopCosine(loopPoint(ringData.sliceLoopStructure!, cellAngle))
-      ringData.sliceSine = (cellAngle: number) =>
-        loopSine(loopPoint(ringData.sliceLoopStructure!, cellAngle))
+      ringData.sliceCosine = (angle) =>
+        loopCosine(loopPoint(ringData.sliceLoopStructure!, angle))
+      ringData.sliceSine = (angle) =>
+        loopSine(loopPoint(ringData.sliceLoopStructure!, angle))
       for (
         let sliceIndex = 0;
         sliceIndex < ringData.sliceSpacer[0];
         sliceIndex++
       ) {
+        ringData.sliceWeight = ringData.sliceSymmetricWeights[sliceIndex]
+        ringData.sliceRelativeWeight =
+          ringData.sliceWeight / ringData.sliceMaxWeight
         ringData.sliceAngle = sliceIndex * sliceAngleStep
-        // sliceWeight = ringData.sliceSymmetricWeights[sliceIndex]
-
+        ringData.sliceTransformedAngle = normalizedAngle(
+          getSliceTransformedAngle(ringData)
+        )
         const cellBasePoint = sphericalToCartesian(
           ringData.depthCosine,
           ringData.depthSine,
@@ -422,7 +471,7 @@ function getRingCells(api: GetRingCellsApi): Array<WorldCellPoint> {
           [
             getSliceRadius(ringData),
             ringData.depthAngle,
-            normalizedAngle(ringData.sliceAngle + getSlicePhase(ringData)),
+            ringData.sliceTransformedAngle,
           ]
         )
         const cellOrientedPoint = rotatedVector(
@@ -491,4 +540,42 @@ function spacerTerminalSlotWeights(
     spacer(someTerminalStructure)
   )
   return spacerSlotWeights(depthTerminalSpacers)
+}
+
+function spacerResolutionMap(
+  maxResolution: number,
+  minResolution: number,
+  minResolutionOrientation: number = 0
+): Array<number> {
+  return spacerIntervals(
+    spacer([maxResolution, [minResolution, minResolutionOrientation]])
+  ).reduce<Array<number>>((result, currentPointInterval, pointIndex) => {
+    for (let i = 0; i < currentPointInterval; i++) {
+      result.push(pointIndex)
+    }
+    return result
+  }, [])
+}
+
+function spacerFoo(
+  maxResolution: number,
+  minResolution: number,
+  frameIndex: number
+) {
+  return spacerResolutionMap(
+    maxResolution,
+    minResolution,
+    spacerResolutionMap(
+      maxResolution,
+      maxResolution - (maxResolution % minResolution)
+    )[frameIndex] % minResolution
+  )[frameIndex]
+}
+
+function noteFrequency(
+  baseFrequency: number,
+  octaveResolution: number,
+  noteIndex: number
+) {
+  return Math.pow(2, noteIndex / octaveResolution) * baseFrequency
 }

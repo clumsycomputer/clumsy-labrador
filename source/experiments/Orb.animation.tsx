@@ -2,9 +2,12 @@ import { AnimationModule } from 'clumsy-graphics'
 import {
   AlignedSpacerStructure,
   loopCosine,
+  loopPendulum,
   loopPoint,
   loopSine,
   LoopStructure,
+  LOOP_ONE,
+  LOOP_ZERO,
   phasedSpacer,
   spacer,
   spacerGroup,
@@ -21,13 +24,13 @@ import { normalizedVector, Vector3 } from '../library/Vector3'
 const OrbAnimationModule: AnimationModule = {
   moduleName: 'Orb',
   getFrameDescription: getOrbFrameDescription,
-  frameCount: 64 * 8,
+  frameCount: 64 * 2,
   frameSize: {
-    width: 1024 * 3,
-    height: 1024 * 3,
+    width: 1024 * 1,
+    height: 1024 * 1,
   },
   animationSettings: {
-    frameRate: 60,
+    frameRate: 10,
     constantRateFactor: 1,
   },
 }
@@ -43,7 +46,7 @@ async function getOrbFrameDescription(api: GetOrbFrameDescriptionApi) {
   const { frameIndex, frameCount } = api
   const frameStamp = frameIndex / frameCount
   const frameAngle = 2 * Math.PI * frameStamp
-  const cameraDepth = 10 // 10 * Math.sin(frameAngle) + 10
+  const cameraDepth = 15 // 10 * Math.sin(frameAngle) + 10
   const orbResolution = 30
   // const orbFrameSpacer = spacer([frameCount, [orbResolution, 0]])
   const depthAngleStep = Math.PI / orbResolution
@@ -56,19 +59,12 @@ async function getOrbFrameDescription(api: GetOrbFrameDescriptionApi) {
   const ringFullSlotWeights = spacerSymmetricSlotWeights(ringSpacer)
   const depthDensity = 19
   const ringDepthSpacer = spacer([depthDensity, [ringFullSlotWeights[0], 0]])
-  // const ringColormap = [
-  //   'rgb(215,117,62)',
-  //   'rgb(226,138,90)',
-  //   'rgb(237,164,113)',
-  //   'rgb(247,187,139)',
-  //   'rgb(255,217,178)',
-  // ]
   const ringColormap = [
-    'rgb(212,214,174)',
-    'rgb(216,179,189)',
-    'rgb(174,222,191)',
-    'rgb(61,218,183)',
-    'rgb(4,183,192)',
+    'rgb(215,117,62)',
+    'rgb(226,138,90)',
+    'rgb(237,164,113)',
+    'rgb(247,187,139)',
+    'rgb(255,217,178)',
   ]
   const ringPoints = ringFullSlotWeights
     .slice(0, ringResolutionHalf)
@@ -208,7 +204,7 @@ async function getOrbFrameDescription(api: GetOrbFrameDescriptionApi) {
             ]
             resultRingPoints.push([
               ...translatedPoint,
-              (someSlotWeight / ringFullSlotWeights[0]!) * 0.15,
+              relativeSliceWeight * 0.2,
               ringColormap[someSlotWeight - 1],
             ])
             resultRingPoints.push([
@@ -219,7 +215,7 @@ async function getOrbFrameDescription(api: GetOrbFrameDescriptionApi) {
                 ],
                 translatedPoint
               ),
-              (someSlotWeight / ringFullSlotWeights[0]!) * 0.15,
+              relativeSliceWeight * 0.2,
               ringColormap[someSlotWeight - 1],
             ])
           }
