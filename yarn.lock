@@ -323,10 +323,10 @@ clumsy-graphics@^1.0.0:
     redux-saga "^1.1.3"
     typescript "4.4.3"
 
-clumsy-math@^4.0.0-alpha.2:
-  version "4.0.0-alpha.2"
-  resolved "https://registry.yarnpkg.com/clumsy-math/-/clumsy-math-4.0.0-alpha.2.tgz#ae7d56f683282b99a1c451481f6dac3c54769028"
-  integrity sha512-+KEe7CbGZc7QzVLbufmRFxZtW6NVWFQRcv/8ayJCb58YOnx9G8LsgK1H03YweegDeXfqNVnF5N4Lno88yDjTFg==
+clumsy-math@^4.0.0-alpha.3:
+  version "4.0.0-alpha.3"
+  resolved "https://registry.yarnpkg.com/clumsy-math/-/clumsy-math-4.0.0-alpha.3.tgz#af83e8f36c560de1ae34a5910391992e69887605"
+  integrity sha512-HqmPXMADmAyyWPpFzJze0Cs3WV5tu/hie5vgQ1fA0U4uSz2PJE+X5eihMBWx9DQlDmxB5vwDuJ6memenxpz0Yg==
 
 color-convert@^2.0.1:
   version "2.0.1"

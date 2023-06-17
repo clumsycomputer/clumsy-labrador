@@ -6,7 +6,7 @@
   "license": "MIT",
   "dependencies": {
     "clumsy-graphics": "^1.0.0",
-    "clumsy-math": "^4.0.0-alpha.2",
+    "clumsy-math": "^4.0.0-alpha.3",
     "color": "^4.2.3",
     "colormap": "^2.3.2"
   }

@@ -41,3 +41,42 @@ export function scaledVector(
     vectorScalar * someVector[2],
   ]
 }
+
+export function rotatedVector(
+  unitRotationAxis: Vector3,
+  rotationAngle: number,
+  baseVector: Vector3
+): Vector3 {
+  const rotationCosine = Math.cos(rotationAngle)
+  const rotationSine = Math.sin(rotationAngle)
+  const oneMinusRotationCosine = 1 - rotationCosine
+  return [
+    (unitRotationAxis[0] * unitRotationAxis[0] * oneMinusRotationCosine +
+      rotationCosine) *
+      baseVector[0] +
+      (unitRotationAxis[0] * unitRotationAxis[1] * oneMinusRotationCosine -
+        unitRotationAxis[2] * rotationSine) *
+        baseVector[1] +
+      (unitRotationAxis[0] * unitRotationAxis[2] * oneMinusRotationCosine +
+        unitRotationAxis[1] * rotationSine) *
+        baseVector[2],
+    (unitRotationAxis[0] * unitRotationAxis[1] * oneMinusRotationCosine +
+      unitRotationAxis[2] * rotationSine) *
+      baseVector[0] +
+      (unitRotationAxis[1] * unitRotationAxis[1] * oneMinusRotationCosine +
+        rotationCosine) *
+        baseVector[1] +
+      (unitRotationAxis[1] * unitRotationAxis[2] * oneMinusRotationCosine -
+        unitRotationAxis[0] * rotationSine) *
+        baseVector[2],
+    (unitRotationAxis[0] * unitRotationAxis[2] * oneMinusRotationCosine -
+      unitRotationAxis[1] * rotationSine) *
+      baseVector[0] +
+      (unitRotationAxis[1] * unitRotationAxis[2] * oneMinusRotationCosine +
+        unitRotationAxis[0] * rotationSine) *
+        baseVector[1] +
+      (unitRotationAxis[2] * unitRotationAxis[2] * oneMinusRotationCosine +
+        rotationCosine) *
+        baseVector[2],
+  ]
+}
