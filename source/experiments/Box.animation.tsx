@@ -27,13 +27,13 @@ import { normalizedVector, rotatedVector, Vector3 } from '../library/Vector3'
 const BoxAnimationModule: AnimationModule = {
   moduleName: 'Box',
   getFrameDescription: getBoxFrameDescription,
-  frameCount: 64 * 16,
+  frameCount: 64 * 6,
   frameSize: {
-    width: 1024 * 5,
-    height: 1024 * 5,
+    width: 1024 * 2,
+    height: 1024 * 2,
   },
   animationSettings: {
-    frameRate: 20,
+    frameRate: 12,
     constantRateFactor: 1,
   },
 }
@@ -49,43 +49,52 @@ async function getBoxFrameDescription(props: GetBoxFrameDescriptionProps) {
   const { frameIndex, frameCount } = props
   const frameStamp = frameIndex / frameCount
   const frameAngle = 2 * Math.PI * frameStamp
-  const cameraDepth = -7.5
-  // const ringColormap = [
-  //   'rgb(212,214,174)',
-  //   'rgb(216,179,189)',
-  //   'rgb(174,222,191)',
-  //   'rgb(61,218,183)',
-  //   'rgb(4,183,192)',
-  // ]
+  const cameraDepth = -6
   const ringColormap = [
-    'rgb(188,44,6)',
-    'rgb(192,92,21)',
-    'rgb(255,160,75)',
-    'rgb(255,210,109)',
-    'rgb(253,245,192)',
+    'rgb(254,223,161)',
+    'rgb(255,203,122)',
+    'rgb(255,166,38)',
+    'rgb(255,125,2)',
   ]
+  // const ringColormap = [
+  //   'rgb(255,76,8)',
+  //   'rgb(231,120,120)',
+  //   'rgb(195,182,5)',
+  //   'rgb(20,173,108)',
+  // ]
   const colorPhaseMap = spacerResolutionMap(
     frameCount,
     frameCount - (frameCount % ringColormap.length)
   )
-  const depthResolution = 60
-  const beeCellsA = getBeeCells({
-    renderOverlay: true,
-    ringRadius: 4,
-    baseSliceResolution: 30,
-    overlaySliceResolution: 18,
+  const fooFrequency = 440
+  const fooResolution = 256
+  const fooAngle =
+    2 * Math.PI * ((fooResolution - 1) / fooResolution) +
+    (1 / fooResolution) * Math.sin(1 * frameAngle)
+  const fooBaseSize = 0.025
+  const fooOverlaySize = 0.0225
+  const hiveCellsA = getHiveCells({
+    ringRadius: 0,
+    baseSliceResolution: 60,
+    overlaySliceResolution: 43,
+    baseTransformRadius: 1,
+    overlayTransformRadius: 1.01,
+    rotationAngle: fooAngle,
+    transformAngle: fooAngle,
     ringDepth: -cameraDepth,
-    rotationAngle: normalizedAngle(1 * frameAngle),
     ringSpacer: phasedSpacer(
-      spacer([
-        12,
-        [11, spacerResolutionMap(frameCount, 11)[frameIndex]],
-        [7, spacerResolutionMap(frameCount, 7)[frameIndex]],
-        [5, spacerResolutionMap(frameCount, 5)[frameIndex]],
-        [3, spacerResolutionMap(frameCount, 3)[frameIndex]],
-      ]),
+      spacer([12, [11, 10], [7, 6], [5, 4], [3, 2]]),
       spacerResolutionMap(frameCount, 12)[frameIndex]
     ),
+    // ringSpacer: phasedSpacer(
+    //   spacer([
+    //     12,
+    //     [11, spacerResolutionMap(frameCount, 11)[frameIndex]],
+    //     [7, spacerResolutionMap(frameCount, 7)[frameIndex]],
+    //     [5, spacerResolutionMap(frameCount, 5)[frameIndex]],
+    //   ]),
+    //   spacerResolutionMap(frameCount, 12)[frameIndex]
+    // ),
     ringSymmetricWeights: spacerSymmetricSlotWeights(
       spacer([
         12,
@@ -94,422 +103,317 @@ async function getBoxFrameDescription(props: GetBoxFrameDescriptionProps) {
         [5, spacerResolutionMap(frameCount, 5)[frameIndex]],
       ])
     ),
-    getDepthSpacerStructure: () => [
-      depthResolution,
-      [31, spacerResolutionMap(frameCount, 31)[frameIndex]],
-      [29, spacerResolutionMap(frameCount, 29)[frameIndex]],
-      [23, spacerResolutionMap(frameCount, 23)[frameIndex]],
-      [19, spacerResolutionMap(frameCount, 19)[frameIndex]],
+    renderLayers: [0, 1, 2, 3],
+    hiveLayers: [
+      {
+        layerFrequency: noteFrequency(fooFrequency, 12, 0),
+        baseCellSize: fooBaseSize,
+        overlayCellSize: fooOverlaySize,
+        sliceRadiusScalar: 2,
+        baseCellColor: ringColormap[3],
+        depthSpacerPhase: spacerResolutionMap(frameCount, 60)[frameIndex],
+        depthSpacerStructure: [
+          60,
+          [31, spacerResolutionMap(frameCount, 31)[frameIndex]],
+          [29, spacerResolutionMap(frameCount, 29)[frameIndex]],
+          [23, spacerResolutionMap(frameCount, 23)[frameIndex]],
+          [19, spacerResolutionMap(frameCount, 19)[frameIndex]],
+        ],
+        getDepthLoopStructure: ({ ringAngle }) => {
+          const relativeRingAngle = (ringAngle! / 2) * Math.PI
+          const baseDepthRange = 0.1
+          return [
+            [
+              0.95,
+              baseDepthRange * relativeRingAngle + LOOP_ZERO,
+              ringAngle!,
+              0,
+              0,
+            ],
+            [
+              0.9,
+              baseDepthRange * relativeRingAngle +
+                1 * baseDepthRange * relativeRingAngle +
+                LOOP_ZERO,
+              normalizedAngle(-2 * ringAngle!),
+              0,
+              0,
+            ],
+            [
+              0.825,
+              baseDepthRange * relativeRingAngle +
+                1 * baseDepthRange * relativeRingAngle +
+                LOOP_ZERO,
+              normalizedAngle(4 * ringAngle!),
+              0,
+              0,
+            ],
+          ]
+        },
+        getSliceLoopStructure: ({ ringAngle }) => {
+          const relativeRingAngle = (ringAngle! / 2) * Math.PI
+          const baseDepthRange = 0.1
+          return [
+            [
+              0.95,
+              baseDepthRange * relativeRingAngle + LOOP_ZERO,
+              ringAngle!,
+              frameAngle,
+              0,
+            ],
+            [
+              0.9,
+              baseDepthRange * relativeRingAngle +
+                1 * baseDepthRange * relativeRingAngle +
+                LOOP_ZERO,
+              normalizedAngle(-2 * ringAngle!),
+              normalizedAngle(2 * frameAngle),
+              0,
+            ],
+            [
+              0.825,
+              baseDepthRange * relativeRingAngle +
+                1 * baseDepthRange * relativeRingAngle +
+                LOOP_ZERO,
+              normalizedAngle(4 * ringAngle!),
+              normalizedAngle(-4 * frameAngle),
+              0,
+            ],
+          ]
+        },
+      },
+      {
+        layerFrequency: noteFrequency(fooFrequency, 12, 6),
+        baseCellSize: fooBaseSize,
+        overlayCellSize: fooOverlaySize,
+        sliceRadiusScalar: 2,
+        baseCellColor: ringColormap[2],
+        depthSpacerPhase: spacerResolutionMap(frameCount, 60)[frameIndex],
+        depthSpacerStructure: [
+          60,
+          [31, spacerResolutionMap(frameCount, 31)[frameIndex]],
+          [29, spacerResolutionMap(frameCount, 29)[frameIndex]],
+          [23, spacerResolutionMap(frameCount, 23)[frameIndex]],
+          [19, spacerResolutionMap(frameCount, 19)[frameIndex]],
+        ],
+        getDepthLoopStructure: ({ ringAngle }) => {
+          const relativeRingAngle = (ringAngle! / 2) * Math.PI
+          const baseDepthRange = 0.1
+          return [
+            [
+              0.95,
+              baseDepthRange * relativeRingAngle + LOOP_ZERO,
+              ringAngle!,
+              0,
+              0,
+            ],
+            [
+              0.9,
+              baseDepthRange * relativeRingAngle +
+                1 * baseDepthRange * relativeRingAngle +
+                LOOP_ZERO,
+              normalizedAngle(-2 * ringAngle!),
+              0,
+              0,
+            ],
+            [
+              0.825,
+              baseDepthRange * relativeRingAngle +
+                1 * baseDepthRange * relativeRingAngle +
+                LOOP_ZERO,
+              normalizedAngle(4 * ringAngle!),
+              0,
+              0,
+            ],
+          ]
+        },
+        getSliceLoopStructure: ({ ringAngle }) => {
+          const relativeRingAngle = (ringAngle! / 2) * Math.PI
+          const baseDepthRange = 0.1
+          return [
+            [
+              0.95,
+              baseDepthRange * relativeRingAngle + LOOP_ZERO,
+              ringAngle!,
+              frameAngle,
+              0,
+            ],
+            [
+              0.9,
+              baseDepthRange * relativeRingAngle +
+                1 * baseDepthRange * relativeRingAngle +
+                LOOP_ZERO,
+              normalizedAngle(-2 * ringAngle!),
+              normalizedAngle(2 * frameAngle),
+              0,
+            ],
+            [
+              0.825,
+              baseDepthRange * relativeRingAngle +
+                1 * baseDepthRange * relativeRingAngle +
+                LOOP_ZERO,
+              normalizedAngle(4 * ringAngle!),
+              normalizedAngle(-4 * frameAngle),
+              0,
+            ],
+          ]
+        },
+      },
+      {
+        layerFrequency: noteFrequency(fooFrequency, 12, 2),
+        baseCellSize: fooBaseSize,
+        overlayCellSize: fooOverlaySize,
+        sliceRadiusScalar: 2,
+        baseCellColor: ringColormap[1],
+        depthSpacerPhase: spacerResolutionMap(frameCount, 60)[frameIndex],
+        depthSpacerStructure: [
+          60,
+          [31, spacerResolutionMap(frameCount, 31)[frameIndex]],
+          [29, spacerResolutionMap(frameCount, 29)[frameIndex]],
+          [23, spacerResolutionMap(frameCount, 23)[frameIndex]],
+          [19, spacerResolutionMap(frameCount, 19)[frameIndex]],
+        ],
+        getDepthLoopStructure: ({ ringAngle }) => {
+          const relativeRingAngle = (ringAngle! / 2) * Math.PI
+          const baseDepthRange = 0.1
+          return [
+            [
+              0.95,
+              baseDepthRange * relativeRingAngle + LOOP_ZERO,
+              ringAngle!,
+              0,
+              0,
+            ],
+            [
+              0.9,
+              baseDepthRange * relativeRingAngle +
+                1 * baseDepthRange * relativeRingAngle +
+                LOOP_ZERO,
+              normalizedAngle(-2 * ringAngle!),
+              0,
+              0,
+            ],
+            [
+              0.825,
+              baseDepthRange * relativeRingAngle +
+                1 * baseDepthRange * relativeRingAngle +
+                LOOP_ZERO,
+              normalizedAngle(4 * ringAngle!),
+              0,
+              0,
+            ],
+          ]
+        },
+        getSliceLoopStructure: ({ ringAngle }) => {
+          const relativeRingAngle = (ringAngle! / 2) * Math.PI
+          const baseDepthRange = 0.1
+          return [
+            [
+              0.95,
+              baseDepthRange * relativeRingAngle + LOOP_ZERO,
+              ringAngle!,
+              frameAngle,
+              0,
+            ],
+            [
+              0.9,
+              baseDepthRange * relativeRingAngle +
+                1 * baseDepthRange * relativeRingAngle +
+                LOOP_ZERO,
+              normalizedAngle(-2 * ringAngle!),
+              normalizedAngle(2 * frameAngle),
+              0,
+            ],
+            [
+              0.825,
+              baseDepthRange * relativeRingAngle +
+                1 * baseDepthRange * relativeRingAngle +
+                LOOP_ZERO,
+              normalizedAngle(4 * ringAngle!),
+              normalizedAngle(-4 * frameAngle),
+              0,
+            ],
+          ]
+        },
+      },
+      {
+        layerFrequency: noteFrequency(fooFrequency, 12, 9),
+        baseCellSize: fooBaseSize,
+        overlayCellSize: fooOverlaySize,
+        sliceRadiusScalar: 2,
+        baseCellColor: ringColormap[0],
+        depthSpacerPhase: spacerResolutionMap(frameCount, 60)[frameIndex],
+        depthSpacerStructure: [
+          60,
+          [31, spacerResolutionMap(frameCount, 31)[frameIndex]],
+          [29, spacerResolutionMap(frameCount, 29)[frameIndex]],
+          [23, spacerResolutionMap(frameCount, 23)[frameIndex]],
+          [19, spacerResolutionMap(frameCount, 19)[frameIndex]],
+        ],
+        getDepthLoopStructure: ({ ringAngle }) => {
+          const relativeRingAngle = (ringAngle! / 2) * Math.PI
+          const baseDepthRange = 0.1
+          return [
+            [
+              0.95,
+              baseDepthRange * relativeRingAngle + LOOP_ZERO,
+              ringAngle!,
+              0,
+              0,
+            ],
+            [
+              0.9,
+              baseDepthRange * relativeRingAngle +
+                1 * baseDepthRange * relativeRingAngle +
+                LOOP_ZERO,
+              normalizedAngle(-2 * ringAngle!),
+              0,
+              0,
+            ],
+            [
+              0.825,
+              baseDepthRange * relativeRingAngle +
+                1 * baseDepthRange * relativeRingAngle +
+                LOOP_ZERO,
+              normalizedAngle(4 * ringAngle!),
+              0,
+              0,
+            ],
+          ]
+        },
+        getSliceLoopStructure: ({ ringAngle }) => {
+          const relativeRingAngle = (ringAngle! / 2) * Math.PI
+          const baseDepthRange = 0.1
+          return [
+            [
+              0.95,
+              baseDepthRange * relativeRingAngle + LOOP_ZERO,
+              ringAngle!,
+              frameAngle,
+              0,
+            ],
+            [
+              0.9,
+              baseDepthRange * relativeRingAngle +
+                1 * baseDepthRange * relativeRingAngle +
+                LOOP_ZERO,
+              normalizedAngle(-2 * ringAngle!),
+              normalizedAngle(2 * frameAngle),
+              0,
+            ],
+            [
+              0.825,
+              baseDepthRange * relativeRingAngle +
+                1 * baseDepthRange * relativeRingAngle +
+                LOOP_ZERO,
+              normalizedAngle(4 * ringAngle!),
+              normalizedAngle(-4 * frameAngle),
+              0,
+            ],
+          ]
+        },
+      },
     ],
-    getDepthSpacerPhase: () =>
-      spacerResolutionMap(frameCount, depthResolution)[frameIndex],
-    getDepthLoopStructure: ({ ringAngle }) => {
-      const relativeRingAngle = (ringAngle! / 2) * Math.PI
-      const baseDepthRange = 0.1
-      return [
-        [
-          0.95,
-          baseDepthRange * relativeRingAngle + LOOP_ZERO,
-          ringAngle!,
-          0,
-          0,
-        ],
-        [
-          0.9,
-          baseDepthRange * relativeRingAngle +
-            1 * baseDepthRange * relativeRingAngle +
-            LOOP_ZERO,
-          normalizedAngle(-2 * ringAngle!),
-          0,
-          0,
-        ],
-        [
-          0.825,
-          baseDepthRange * relativeRingAngle +
-            1 * baseDepthRange * relativeRingAngle +
-            LOOP_ZERO,
-          normalizedAngle(4 * ringAngle!),
-          0,
-          0,
-        ],
-      ]
-    },
-    getSliceLoopStructure: ({ ringAngle }) => {
-      const relativeRingAngle = (ringAngle! / 2) * Math.PI
-      const baseDepthRange = 0.1
-      return [
-        [
-          0.95,
-          baseDepthRange * relativeRingAngle + LOOP_ZERO,
-          ringAngle!,
-          frameAngle,
-          0,
-        ],
-        [
-          0.9,
-          baseDepthRange * relativeRingAngle +
-            1 * baseDepthRange * relativeRingAngle +
-            LOOP_ZERO,
-          normalizedAngle(-2 * ringAngle!),
-          normalizedAngle(2 * frameAngle),
-          0,
-        ],
-        [
-          0.825,
-          baseDepthRange * relativeRingAngle +
-            1 * baseDepthRange * relativeRingAngle +
-            LOOP_ZERO,
-          normalizedAngle(4 * ringAngle!),
-          normalizedAngle(-4 * frameAngle),
-          0,
-        ],
-      ]
-    },
-    getSliceRadius: ({ depthRelativeWeight }) => 2 * depthRelativeWeight! + 2,
-    getSliceTransformedAngle: ({ sliceAngle, depthSpacer, depthPoint }) =>
-      noteFrequency(440, 12, 0) * sliceAngle! +
-      (Math.PI / depthSpacer![0]) * depthPoint!,
-    getBaseCellColor: () => ringColormap[4],
-    getBaseCellSize: () => 0.03,
-    getOverlayCellSize: () => 0.0275,
-    getBaseRotationRadius: () => 1,
-    getOverlayRotationRadius: () => 1.01,
-  })
-  const beeCellsB = getBeeCells({
-    renderOverlay: true,
-    ringRadius: 4,
-    baseSliceResolution: 30,
-    overlaySliceResolution: 18,
-    ringDepth: -cameraDepth,
-    ringSpacer: phasedSpacer(
-      spacer([
-        12,
-        [
-          11,
-          spacerResolutionMap(frameCount, 11)[(2 * frameIndex) % frameCount],
-        ],
-        [7, spacerResolutionMap(frameCount, 7)[(2 * frameIndex) % frameCount]],
-        [5, spacerResolutionMap(frameCount, 5)[(2 * frameIndex) % frameCount]],
-        [3, spacerResolutionMap(frameCount, 3)[(2 * frameIndex) % frameCount]],
-      ]),
-      spacerResolutionMap(frameCount, 12)[frameIndex]
-    ),
-    rotationAngle: normalizedAngle(1 * frameAngle),
-    ringSymmetricWeights: spacerSymmetricSlotWeights(
-      spacer([
-        12,
-        [
-          11,
-          spacerResolutionMap(frameCount, 11)[(2 * frameIndex) % frameCount],
-        ],
-        [7, spacerResolutionMap(frameCount, 7)[(2 * frameIndex) % frameCount]],
-        [5, spacerResolutionMap(frameCount, 5)[(2 * frameIndex) % frameCount]],
-      ])
-    ),
-    getDepthSpacerStructure: () => [
-      depthResolution,
-      [31, spacerResolutionMap(frameCount, 31)[(2 * frameIndex) % frameCount]],
-      [29, spacerResolutionMap(frameCount, 29)[(2 * frameIndex) % frameCount]],
-      [23, spacerResolutionMap(frameCount, 23)[(2 * frameIndex) % frameCount]],
-      [19, spacerResolutionMap(frameCount, 19)[(2 * frameIndex) % frameCount]],
-    ],
-    getDepthSpacerPhase: () =>
-      spacerResolutionMap(frameCount, depthResolution)[frameIndex],
-    getDepthLoopStructure: ({ ringAngle }) => {
-      const relativeRingAngle = (ringAngle! / 2) * Math.PI
-      const baseDepthRange = 0.1
-      return [
-        [
-          0.95,
-          baseDepthRange * relativeRingAngle + LOOP_ZERO,
-          ringAngle!,
-          0,
-          0,
-        ],
-        [
-          0.9,
-          baseDepthRange * relativeRingAngle +
-            1 * baseDepthRange * relativeRingAngle +
-            LOOP_ZERO,
-          normalizedAngle(-2 * ringAngle!),
-          0,
-          0,
-        ],
-        [
-          0.825,
-          baseDepthRange * relativeRingAngle +
-            1 * baseDepthRange * relativeRingAngle +
-            LOOP_ZERO,
-          normalizedAngle(4 * ringAngle!),
-          0,
-          0,
-        ],
-      ]
-    },
-    getSliceLoopStructure: ({ ringAngle }) => {
-      const relativeRingAngle = (ringAngle! / 2) * Math.PI
-      const baseDepthRange = 0.1
-      return [
-        [
-          0.95,
-          baseDepthRange * relativeRingAngle + LOOP_ZERO,
-          ringAngle!,
-          frameAngle,
-          0,
-        ],
-        [
-          0.9,
-          baseDepthRange * relativeRingAngle +
-            1 * baseDepthRange * relativeRingAngle +
-            LOOP_ZERO,
-          normalizedAngle(-2 * ringAngle!),
-          normalizedAngle(2 * frameAngle),
-          0,
-        ],
-        [
-          0.825,
-          baseDepthRange * relativeRingAngle +
-            1 * baseDepthRange * relativeRingAngle +
-            LOOP_ZERO,
-          normalizedAngle(4 * ringAngle!),
-          normalizedAngle(-4 * frameAngle),
-          0,
-        ],
-      ]
-    },
-    getSliceRadius: ({ depthRelativeWeight }) => 2 * depthRelativeWeight! + 2,
-    getSliceTransformedAngle: ({ sliceAngle, depthSpacer, depthPoint }) =>
-      noteFrequency(440, 12, 6) * sliceAngle! +
-      (Math.PI / depthSpacer![0]) * depthPoint!,
-    getBaseCellColor: () => ringColormap[3],
-    getBaseCellSize: () => 0.03,
-    getOverlayCellSize: () => 0.0275,
-    getBaseRotationRadius: () => 1,
-    getOverlayRotationRadius: () => 1.01,
-  })
-  const beeCellsC = getBeeCells({
-    renderOverlay: true,
-    ringRadius: 4,
-    baseSliceResolution: 30,
-    overlaySliceResolution: 18,
-    ringDepth: -cameraDepth,
-    ringSpacer: phasedSpacer(
-      spacer([
-        12,
-        [
-          11,
-          spacerResolutionMap(frameCount, 11)[(3 * frameIndex) % frameCount],
-        ],
-        [7, spacerResolutionMap(frameCount, 7)[(3 * frameIndex) % frameCount]],
-        [5, spacerResolutionMap(frameCount, 5)[(3 * frameIndex) % frameCount]],
-        [3, spacerResolutionMap(frameCount, 3)[(3 * frameIndex) % frameCount]],
-      ]),
-      spacerResolutionMap(frameCount, 12)[frameIndex]
-    ),
-    rotationAngle: normalizedAngle(1 * frameAngle),
-    ringSymmetricWeights: spacerSymmetricSlotWeights(
-      spacer([
-        12,
-        [
-          11,
-          spacerResolutionMap(frameCount, 11)[(3 * frameIndex) % frameCount],
-        ],
-        [7, spacerResolutionMap(frameCount, 7)[(3 * frameIndex) % frameCount]],
-        [5, spacerResolutionMap(frameCount, 5)[(3 * frameIndex) % frameCount]],
-      ])
-    ),
-    getDepthSpacerStructure: () => [
-      depthResolution,
-      [31, spacerResolutionMap(frameCount, 31)[(3 * frameIndex) % frameCount]],
-      [29, spacerResolutionMap(frameCount, 29)[(3 * frameIndex) % frameCount]],
-      [23, spacerResolutionMap(frameCount, 23)[(3 * frameIndex) % frameCount]],
-      [19, spacerResolutionMap(frameCount, 19)[(3 * frameIndex) % frameCount]],
-    ],
-    getDepthSpacerPhase: () =>
-      spacerResolutionMap(frameCount, depthResolution)[frameIndex],
-    getDepthLoopStructure: ({ ringAngle }) => {
-      const relativeRingAngle = (ringAngle! / 2) * Math.PI
-      const baseDepthRange = 0.1
-      return [
-        [
-          0.95,
-          baseDepthRange * relativeRingAngle + LOOP_ZERO,
-          ringAngle!,
-          0,
-          0,
-        ],
-        [
-          0.9,
-          baseDepthRange * relativeRingAngle +
-            1 * baseDepthRange * relativeRingAngle +
-            LOOP_ZERO,
-          normalizedAngle(-2 * ringAngle!),
-          0,
-          0,
-        ],
-        [
-          0.825,
-          baseDepthRange * relativeRingAngle +
-            1 * baseDepthRange * relativeRingAngle +
-            LOOP_ZERO,
-          normalizedAngle(4 * ringAngle!),
-          0,
-          0,
-        ],
-      ]
-    },
-    getSliceLoopStructure: ({ ringAngle }) => {
-      const relativeRingAngle = (ringAngle! / 2) * Math.PI
-      const baseDepthRange = 0.1
-      return [
-        [
-          0.95,
-          baseDepthRange * relativeRingAngle + LOOP_ZERO,
-          ringAngle!,
-          frameAngle,
-          0,
-        ],
-        [
-          0.9,
-          baseDepthRange * relativeRingAngle +
-            1 * baseDepthRange * relativeRingAngle +
-            LOOP_ZERO,
-          normalizedAngle(-2 * ringAngle!),
-          normalizedAngle(2 * frameAngle),
-          0,
-        ],
-        [
-          0.825,
-          baseDepthRange * relativeRingAngle +
-            1 * baseDepthRange * relativeRingAngle +
-            LOOP_ZERO,
-          normalizedAngle(4 * ringAngle!),
-          normalizedAngle(-4 * frameAngle),
-          0,
-        ],
-      ]
-    },
-    getSliceRadius: ({ depthRelativeWeight }) => 2 * depthRelativeWeight! + 2,
-    getSliceTransformedAngle: ({ sliceAngle, depthSpacer, depthPoint }) =>
-      noteFrequency(440, 12, 2) * sliceAngle! +
-      (Math.PI / depthSpacer![0]) * depthPoint!,
-    getBaseCellColor: () => ringColormap[2],
-    getBaseCellSize: () => 0.03,
-    getOverlayCellSize: () => 0.0275,
-    getBaseRotationRadius: () => 1,
-    getOverlayRotationRadius: () => 1.01,
-  })
-  const beeCellsD = getBeeCells({
-    renderOverlay: true,
-    ringRadius: 4,
-    baseSliceResolution: 30,
-    overlaySliceResolution: 18,
-    ringDepth: -cameraDepth,
-    ringSpacer: phasedSpacer(
-      spacer([
-        12,
-        [
-          11,
-          spacerResolutionMap(frameCount, 11)[(4 * frameIndex) % frameCount],
-        ],
-        [7, spacerResolutionMap(frameCount, 7)[(4 * frameIndex) % frameCount]],
-        [5, spacerResolutionMap(frameCount, 5)[(4 * frameIndex) % frameCount]],
-        [3, spacerResolutionMap(frameCount, 3)[(4 * frameIndex) % frameCount]],
-      ]),
-      spacerResolutionMap(frameCount, 12)[frameIndex]
-    ),
-    rotationAngle: normalizedAngle(1 * frameAngle),
-    ringSymmetricWeights: spacerSymmetricSlotWeights(
-      spacer([
-        12,
-        [
-          11,
-          spacerResolutionMap(frameCount, 11)[(4 * frameIndex) % frameCount],
-        ],
-        [7, spacerResolutionMap(frameCount, 7)[(4 * frameIndex) % frameCount]],
-        [5, spacerResolutionMap(frameCount, 5)[(4 * frameIndex) % frameCount]],
-      ])
-    ),
-    getDepthSpacerStructure: () => [
-      depthResolution,
-      [31, spacerResolutionMap(frameCount, 31)[(4 * frameIndex) % frameCount]],
-      [29, spacerResolutionMap(frameCount, 29)[(4 * frameIndex) % frameCount]],
-      [23, spacerResolutionMap(frameCount, 23)[(4 * frameIndex) % frameCount]],
-      [19, spacerResolutionMap(frameCount, 19)[(4 * frameIndex) % frameCount]],
-    ],
-    getDepthSpacerPhase: () =>
-      spacerResolutionMap(frameCount, depthResolution)[frameIndex],
-    getDepthLoopStructure: ({ ringAngle }) => {
-      const relativeRingAngle = (ringAngle! / 2) * Math.PI
-      const baseDepthRange = 0.1
-      return [
-        [
-          0.95,
-          baseDepthRange * relativeRingAngle + LOOP_ZERO,
-          ringAngle!,
-          0,
-          0,
-        ],
-        [
-          0.9,
-          baseDepthRange * relativeRingAngle +
-            1 * baseDepthRange * relativeRingAngle +
-            LOOP_ZERO,
-          normalizedAngle(-2 * ringAngle!),
-          0,
-          0,
-        ],
-        [
-          0.825,
-          baseDepthRange * relativeRingAngle +
-            1 * baseDepthRange * relativeRingAngle +
-            LOOP_ZERO,
-          normalizedAngle(4 * ringAngle!),
-          0,
-          0,
-        ],
-      ]
-    },
-    getSliceLoopStructure: ({ ringAngle }) => {
-      const relativeRingAngle = (ringAngle! / 2) * Math.PI
-      const baseDepthRange = 0.1
-      return [
-        [
-          0.95,
-          baseDepthRange * relativeRingAngle + LOOP_ZERO,
-          ringAngle!,
-          frameAngle,
-          0,
-        ],
-        [
-          0.9,
-          baseDepthRange * relativeRingAngle +
-            1 * baseDepthRange * relativeRingAngle +
-            LOOP_ZERO,
-          normalizedAngle(-2 * ringAngle!),
-          normalizedAngle(2 * frameAngle),
-          0,
-        ],
-        [
-          0.825,
-          baseDepthRange * relativeRingAngle +
-            1 * baseDepthRange * relativeRingAngle +
-            LOOP_ZERO,
-          normalizedAngle(4 * ringAngle!),
-          normalizedAngle(-4 * frameAngle),
-          0,
-        ],
-      ]
-    },
-    getSliceRadius: ({ depthRelativeWeight }) => 2 * depthRelativeWeight! + 2,
-    getSliceTransformedAngle: ({ sliceAngle, depthSpacer, depthPoint }) =>
-      noteFrequency(440, 12, 9) * sliceAngle! +
-      (Math.PI / depthSpacer![0]) * depthPoint!,
-    getBaseCellColor: () => ringColormap[1],
-    getBaseCellSize: () => 0.03,
-    getOverlayCellSize: () => 0.0275,
-    getBaseRotationRadius: () => 1,
-    getOverlayRotationRadius: () => 1.01,
   })
   return (
     <CellGraphic
@@ -518,8 +422,86 @@ async function getBoxFrameDescription(props: GetBoxFrameDescriptionProps) {
       perspectiveDepthNear={0.1}
       perspectiveVerticalFieldOfViewAngle={(1.75 / 3) * Math.PI}
       cameraDepth={cameraDepth}
-      worldCellPoints={[...beeCellsA, ...beeCellsB, ...beeCellsC, ...beeCellsD]}
+      worldCellPoints={hiveCellsA}
     />
+  )
+}
+
+interface GetHiveCellsApi
+  extends Pick<
+    GetBeeCellsApi,
+    | 'ringDepth'
+    | 'ringRadius'
+    | 'ringSpacer'
+    | 'ringSymmetricWeights'
+    | 'rotationAngle'
+    | 'transformAngle'
+    | 'baseSliceResolution'
+    | 'overlaySliceResolution'
+  > {
+  baseTransformRadius: number
+  overlayTransformRadius: number
+  renderLayers: Array<number>
+  hiveLayers: Array<
+    {
+      layerFrequency: number
+      depthSpacerStructure: AlignedSpacerStructure
+      depthSpacerPhase: number
+      sliceRadiusScalar: number
+      baseCellSize: number
+      baseCellColor: string
+      overlayCellSize: number
+    } & Pick<GetBeeCellsApi, 'getDepthLoopStructure' | 'getSliceLoopStructure'>
+  >
+}
+
+function getHiveCells(api: GetHiveCellsApi) {
+  const {
+    rotationAngle,
+    transformAngle,
+    renderLayers,
+    hiveLayers,
+    ringRadius,
+    ringDepth,
+    ringSpacer,
+    ringSymmetricWeights,
+    baseSliceResolution,
+    overlaySliceResolution,
+    baseTransformRadius,
+    overlayTransformRadius,
+  } = api
+  return renderLayers.reduce<Array<WorldCellPoint>>(
+    (resultCells, layerIndex) => {
+      const someLayer = hiveLayers[layerIndex]
+      const layerCells = getBeeCells({
+        rotationAngle,
+        transformAngle,
+        ringRadius,
+        ringDepth,
+        ringSpacer,
+        ringSymmetricWeights,
+        baseSliceResolution,
+        overlaySliceResolution,
+        getDepthLoopStructure: someLayer.getDepthLoopStructure,
+        getSliceLoopStructure: someLayer.getSliceLoopStructure,
+        renderOverlay: true,
+        getBaseRotationRadius: () => baseTransformRadius,
+        getOverlayRotationRadius: () => overlayTransformRadius,
+        getDepthSpacerStructure: () => someLayer.depthSpacerStructure,
+        getDepthSpacerPhase: () => someLayer.depthSpacerPhase,
+        getBaseCellColor: () => someLayer.baseCellColor,
+        getBaseCellSize: () => someLayer.baseCellSize,
+        getOverlayCellSize: () => someLayer.overlayCellSize,
+        getSliceRadius: ({ depthRelativeWeight }) =>
+          someLayer.sliceRadiusScalar * depthRelativeWeight! +
+          someLayer.sliceRadiusScalar,
+        getSliceTransformedAngle: ({ sliceAngle, depthSpacer, depthPoint }) =>
+          someLayer.layerFrequency * sliceAngle! +
+          (Math.PI / depthSpacer![0]) * depthPoint!,
+      })
+      return [...resultCells, ...layerCells]
+    },
+    []
   )
 }
 
@@ -541,6 +523,7 @@ interface GetBeeCellsApi
   baseSliceResolution: number
   overlaySliceResolution: number
   rotationAngle: number
+  transformAngle: number
   getBaseRotationRadius: (ringData: RingData) => number
   getOverlayRotationRadius: (ringData: RingData) => number
   getBaseCellColor: (ringData: RingData) => string
@@ -565,6 +548,7 @@ function getBeeCells(api: GetBeeCellsApi): Array<WorldCellPoint> {
     getBaseCellColor,
     getBaseCellSize,
     rotationAngle,
+    transformAngle,
     renderOverlay,
     overlaySliceResolution,
     getOverlayRotationRadius,
@@ -608,7 +592,7 @@ function getBeeCells(api: GetBeeCellsApi): Array<WorldCellPoint> {
           sliceSine!,
           [getBaseRotationRadius(ringData), depthAngle!, sliceAngle!]
         ),
-        rotationAngle,
+        transformAngle,
         orientedCellPoint
       )
     },
@@ -653,7 +637,7 @@ function getBeeCells(api: GetBeeCellsApi): Array<WorldCellPoint> {
             sliceSine!,
             [getOverlayRotationRadius(ringData), depthAngle!, sliceAngle!]
           ),
-          rotationAngle,
+          transformAngle,
           orientedCellPoint
         )
       },
