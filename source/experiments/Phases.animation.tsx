@@ -14,9 +14,9 @@ import {
 import { Vector3 } from '../library/Vector3'
 import { reflectedPoint } from '../library/Point3'
 
-const animationFrameCount = 48 * 1
-const animationFrameRate = 12
-const clipStartFrameIndex = 0
+const animationFrameCount = 64 * 6
+const animationFrameRate = 20
+const clipStartFrameIndex = 64 * 5
 const clipFinishFrameIndex = animationFrameCount
 const backgroundColor = 'rgb(72,30,0)'
 const colorMap = [
@@ -55,46 +55,45 @@ async function getPhasesFrameDescription(
   const frameIndex = clipStartFrameIndex + props.frameIndex
   const frameStamp = frameIndex / animationFrameCount
   const frameAngle = 2 * Math.PI * frameStamp
+  const bazCount = Math.floor(frameCount / 4)
+  const bazIndex = spacerResolutionMap([frameCount, [bazCount, 0]])[frameIndex]
   const spacerStructureA: AlignedSpacerStructure = [
     13,
     [
       11,
-      spacerResolutionMap([frameCount, [frameCount - (frameCount % 11), 0]])[
-        frameIndex
+      spacerResolutionMap([bazCount, [bazCount - (bazCount % 11), 0]])[
+        bazIndex
       ] % 11,
     ],
     [
       7,
-      spacerResolutionMap([frameCount, [frameCount - (frameCount % 7), 0]])[
-        frameIndex
+      spacerResolutionMap([bazCount, [bazCount - (bazCount % 7), 0]])[
+        bazIndex
       ] % 7,
     ],
     [
       5,
-      spacerResolutionMap([frameCount, [frameCount - (frameCount % 5), 0]])[
-        frameIndex
+      spacerResolutionMap([bazCount, [bazCount - (bazCount % 5), 0]])[
+        bazIndex
       ] % 5,
     ],
     [
       3,
-      spacerResolutionMap([frameCount, [frameCount - (frameCount % 3), 0]])[
-        frameIndex
+      spacerResolutionMap([bazCount, [bazCount - (bazCount % 3), 0]])[
+        bazIndex
       ] % 3,
     ],
     [
       2,
-      spacerResolutionMap([frameCount, [frameCount - (frameCount % 2), 0]])[
-        frameIndex
+      spacerResolutionMap([bazCount, [bazCount - (bazCount % 2), 0]])[
+        bazIndex
       ] % 2,
     ],
   ]
   const spacerA = spacer(spacerStructureA)
   const phasedSpacerA = phasedSpacer(
     spacerA,
-    spacerResolutionMap([
-      frameCount,
-      [frameCount - (frameCount % spacerA[0]), 0],
-    ])[frameIndex]
+    spacerResolutionMap([frameCount, [spacerA[0], 0]])[frameIndex]
   )
   const terminalWeightsA = spacerTerminalSlotWeights(spacerStructureA)
   const pointRaidusA = 6
@@ -106,6 +105,7 @@ async function getPhasesFrameDescription(
     pointIndexA++
   ) {
     const pointA = phasedSpacerA[1][pointIndexA]
+    const relativePointWeight = terminalWeightsA[pointA] / terminalWeightsA[0]
     const pointAngleA = pointA * pointAngleStepA
     const adjustedPointAngleA = pointAngleA + Math.PI / 2
     const originX = pointRaidusA * Math.cos(adjustedPointAngleA)
@@ -113,22 +113,27 @@ async function getPhasesFrameDescription(
     const cellColor =
       colorMap[
         (spacerResolutionMap([
-          frameCount,
+          bazCount,
           [
-            frameCount -
-              (frameCount %
+            bazCount -
+              (bazCount %
                 spacerResolutionMap([
-                  frameCount,
-                  [frameCount - (frameCount % terminalWeightsA[pointA]), 0],
-                ])[frameIndex]),
+                  bazCount,
+                  [bazCount - (bazCount % terminalWeightsA[pointA]), 0],
+                ])[bazIndex]),
             0,
           ],
-        ])[frameIndex] +
+        ])[bazIndex] +
           pointIndexA) %
           colorMap.length
       ]
     const basePoint: Vector3 = [originX, originY, 0]
-    cellsA.push([...basePoint, 2.5, cellColor])
+    cellsA.push([
+      ...basePoint,
+      relativePointWeight * (1 / terminalWeightsA[0]) * 4 +
+        ((terminalWeightsA[0] - 1) / terminalWeightsA[0]) * 4,
+      cellColor,
+    ])
     // cellsA.push([
     //   ...reflectedPoint(
     //     [
