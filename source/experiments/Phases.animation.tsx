@@ -16,7 +16,7 @@ import { reflectedPoint } from '../library/Point3'
 
 const animationFrameCount = 64 * 6
 const animationFrameRate = 20
-const clipStartFrameIndex = 64 * 5
+const clipStartFrameIndex = 64 * 0
 const clipFinishFrameIndex = animationFrameCount
 const backgroundColor = 'rgb(72,30,0)'
 const colorMap = [
@@ -55,7 +55,7 @@ async function getPhasesFrameDescription(
   const frameIndex = clipStartFrameIndex + props.frameIndex
   const frameStamp = frameIndex / animationFrameCount
   const frameAngle = 2 * Math.PI * frameStamp
-  const bazCount = Math.floor(frameCount / 4)
+  const bazCount = Math.floor(frameCount / 12)
   const bazIndex = spacerResolutionMap([frameCount, [bazCount, 0]])[frameIndex]
   const spacerStructureA: AlignedSpacerStructure = [
     13,
@@ -83,17 +83,20 @@ async function getPhasesFrameDescription(
         bazIndex
       ] % 3,
     ],
-    [
-      2,
-      spacerResolutionMap([bazCount, [bazCount - (bazCount % 2), 0]])[
-        bazIndex
-      ] % 2,
-    ],
+    // [
+    //   2,
+    //   spacerResolutionMap([bazCount, [bazCount - (bazCount % 2), 0]])[
+    //     bazIndex
+    //   ] % 2,
+    // ],
   ]
   const spacerA = spacer(spacerStructureA)
   const phasedSpacerA = phasedSpacer(
     spacerA,
-    spacerResolutionMap([frameCount, [spacerA[0], 0]])[frameIndex]
+    spacerResolutionMap([
+      frameCount,
+      [frameCount - (frameCount % bazCount), 0],
+    ])[frameIndex] % bazCount
   )
   const terminalWeightsA = spacerTerminalSlotWeights(spacerStructureA)
   const pointRaidusA = 6
@@ -128,23 +131,22 @@ async function getPhasesFrameDescription(
           colorMap.length
       ]
     const basePoint: Vector3 = [originX, originY, 0]
+    const baseCellSize = 2
+    const cellSize =
+      relativePointWeight * (1 / terminalWeightsA[0]) * baseCellSize +
+      ((terminalWeightsA[0] - 1) / terminalWeightsA[0]) * baseCellSize
+    cellsA.push([...basePoint, cellSize, cellColor])
     cellsA.push([
-      ...basePoint,
-      relativePointWeight * (1 / terminalWeightsA[0]) * 4 +
-        ((terminalWeightsA[0] - 1) / terminalWeightsA[0]) * 4,
+      ...reflectedPoint(
+        [
+          [0, 0, basePoint[2]],
+          [0, 1, basePoint[2]],
+        ],
+        basePoint
+      ),
+      cellSize,
       cellColor,
     ])
-    // cellsA.push([
-    //   ...reflectedPoint(
-    //     [
-    //       [0, 0, basePoint[2]],
-    //       [0, 1, basePoint[2]],
-    //     ],
-    //     basePoint
-    //   ),
-    //   2.5,
-    //   cellColor,
-    // ])
   }
   return (
     <CellGraphic
