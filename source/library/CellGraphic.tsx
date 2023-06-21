@@ -8,6 +8,7 @@ export interface CellGraphicProps {
   perspectiveDepthFar: number
   lightDepth: number
   worldCellPoints: Array<GenericWorldCellPoint>
+  backgroundColor?: string
 }
 
 export interface ViewRectangle {
@@ -37,6 +38,7 @@ export function CellGraphic(props: CellGraphicProps) {
     perspectiveDepthFar,
     perspectiveVerticalFieldOfViewAngle,
     lightDepth,
+    backgroundColor = 'black',
   } = props
   const { perspectiveCellPoints } = getPerspectiveCellPoints({
     worldCellPoints,
@@ -50,13 +52,13 @@ export function CellGraphic(props: CellGraphicProps) {
     <svg
       viewBox={`${viewRectangle.x} ${viewRectangle.y} ${viewRectangle.width} ${viewRectangle.height}`}
     >
-      <g transform="scale(1,-1)">
+      <g transform={'scale(1,-1)'}>
         <rect
           x={viewRectangle.x}
           y={viewRectangle.y}
           width={viewRectangle.width}
           height={viewRectangle.height}
-          fill={'black'}
+          fill={backgroundColor}
         />
         {perspectiveCellPoints
           .sort((pointA, pointB) => pointA[2] - pointB[2])
