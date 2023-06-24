@@ -5,6 +5,7 @@ import {
   AlignedSpacerStructure,
   LOOP_ONE,
   LOOP_ZERO,
+  LoopStructure,
   SpacerSlotWeight,
   loopCosine,
   loopPoint,
@@ -19,6 +20,7 @@ import {
 } from 'clumsy-math'
 import { Vector3, normalizedVector, rotatedVector } from '../library/Vector3'
 import { reflectedPoint, sphericalToCartesian } from '../library/Point3'
+import { normalizedAngle } from '../library/miscellaneous'
 
 const animationFrameCount = 64 * 4
 const animationFrameRate = 30
@@ -59,20 +61,13 @@ async function getPhasesFrameDescription(
 ) {
   const frameCount = animationFrameCount
   const frameIndex = clipStartFrameIndex + props.frameIndex
-  const adjustedFrameCountA = Math.floor(frameCount / 5)
+  const adjustedFrameCountA = Math.floor(frameCount / 7)
   const adjustedFrameIndexA = spacerResolutionMap([
     frameCount,
     [adjustedFrameCountA, 0],
   ])[frameIndex]
-  const adjustedFrameCountB = Math.floor(frameCount / 10)
-  const adjustedFrameIndexB = spacerResolutionMap([
-    frameCount,
-    [adjustedFrameCountB, 0],
-  ])[frameIndex]
   const frameStamp = frameIndex / animationFrameCount
   const frameAngle = 2 * Math.PI * frameStamp
-  const adjustedFrameStampB = adjustedFrameIndexB / adjustedFrameCountB
-  const adjustedFrameAngleB = 2 * Math.PI * adjustedFrameStampB
   const cameraDepth = -6
   const ringDepth = -cameraDepth
   const ringSpacerStructure: AlignedSpacerStructure = [
@@ -122,7 +117,7 @@ async function getPhasesFrameDescription(
   )
   const ringTerminalWeights = spacerTerminalSlotWeights(ringSpacerStructure)
   const ringMaxTerminalWeight = ringTerminalWeights[0]
-  const ringSymmetricWeights = spacerSymmetricSlotWeights(spacer([12, [7, 0]]))
+  const ringSymmetricWeights = spacerSymmetricSlotWeights(spacer([13, [7, 0]]))
   const ringMaxSymmetricWeight = ringSymmetricWeights[0]
   const ringRadius = 1
   const ringPointAngleStep = (2 * Math.PI) / ringPhasedSpacer[0]
@@ -146,27 +141,27 @@ async function getPhasesFrameDescription(
     const ringPointOrientationAxis = normalizedVector(
       rotatedVector([0, 0, 1], ringPointAngle, [1, 0, 0])
     )
-    const ringPointColor =
-      colorMap[
-        (spacerResolutionMap([
-          adjustedFrameCountA,
-          [
-            adjustedFrameCountA -
-              (adjustedFrameCountA %
-                spacerResolutionMap([
-                  adjustedFrameCountA,
-                  [
-                    adjustedFrameCountA -
-                      (adjustedFrameCountA % ringPointTerminalWeight),
-                    0,
-                  ],
-                ])[adjustedFrameIndexA]),
-            0,
-          ],
-        ])[adjustedFrameIndexA] +
-          ringPointIndex) %
-          colorMap.length
-      ]
+    const ringPointColor = colorMap[2]
+    //   colorMap[
+    //     (spacerResolutionMap([
+    //       adjustedFrameCountA,
+    //       [
+    //         adjustedFrameCountA -
+    //           (adjustedFrameCountA %
+    //             spacerResolutionMap([
+    //               adjustedFrameCountA,
+    //               [
+    //                 adjustedFrameCountA -
+    //                   (adjustedFrameCountA % ringPointTerminalWeight),
+    //                 0,
+    //               ],
+    //             ])[adjustedFrameIndexA]),
+    //         0,
+    //       ],
+    //     ])[adjustedFrameIndexA] +
+    //       ringPointIndex) %
+    //       colorMap.length
+    //   ]
     const depthSpacerStructure: AlignedSpacerStructure = ringSpacerStructure
     const depthSpacer = spacer(depthSpacerStructure)
     const depthPhasedSpacer = phasedSpacer(
@@ -177,10 +172,39 @@ async function getPhasesFrameDescription(
       ])[adjustedFrameIndexA] % depthSpacer[0]
     )
     const depthPointAngleStep = Math.PI / depthPhasedSpacer[0]
+    const relativeRingPointAngle = (ringPointAngle / 2) * Math.PI
+    const depthLoopRangeScalar = 0.1
+    const depthLoopStructure: LoopStructure = [
+      [
+        0.95,
+        depthLoopRangeScalar * relativeRingPointAngle + LOOP_ZERO,
+        ringPointAngle,
+        0,
+        0,
+      ],
+      [
+        0.9,
+        depthLoopRangeScalar * relativeRingPointAngle +
+          1 * depthLoopRangeScalar * relativeRingPointAngle +
+          LOOP_ZERO,
+        normalizedAngle(-2 * ringPointAngle),
+        0,
+        0,
+      ],
+      [
+        0.825,
+        depthLoopRangeScalar * relativeRingPointAngle +
+          1 * depthLoopRangeScalar * relativeRingPointAngle +
+          LOOP_ZERO,
+        normalizedAngle(4 * ringPointAngle),
+        0,
+        0,
+      ],
+    ]
     const depthCosine = (someDepthAngle: number) =>
-      loopCosine(loopPoint([[LOOP_ONE, LOOP_ZERO, 0, 0, 0]], someDepthAngle))
+      loopCosine(loopPoint(depthLoopStructure, someDepthAngle))
     const depthSine = (someDepthAngle: number) =>
-      loopSine(loopPoint([[LOOP_ONE, LOOP_ZERO, 0, 0, 0]], someDepthAngle))
+      loopSine(loopPoint(depthLoopStructure, someDepthAngle))
     for (
       let depthPointIndex = 0;
       depthPointIndex < depthPhasedSpacer[1].length;
@@ -197,10 +221,37 @@ async function getPhasesFrameDescription(
         ]
       )
       const slicePointAngleStep = (2 * Math.PI) / slicePhasedSpacer[0]
+      const sliceLoopStructure: LoopStructure = [
+        [
+          0.95,
+          depthLoopRangeScalar * relativeRingPointAngle + LOOP_ZERO,
+          ringPointAngle,
+          frameAngle,
+          0,
+        ],
+        [
+          0.9,
+          depthLoopRangeScalar * relativeRingPointAngle +
+            1 * depthLoopRangeScalar * relativeRingPointAngle +
+            LOOP_ZERO,
+          normalizedAngle(-2 * ringPointAngle),
+          normalizedAngle(2 * frameAngle),
+          0,
+        ],
+        [
+          0.825,
+          depthLoopRangeScalar * relativeRingPointAngle +
+            1 * depthLoopRangeScalar * relativeRingPointAngle +
+            LOOP_ZERO,
+          normalizedAngle(4 * ringPointAngle),
+          normalizedAngle(-4 * frameAngle),
+          0,
+        ],
+      ]
       const sliceCosine = (someSliceAngle: number) =>
-        loopCosine(loopPoint([[LOOP_ONE, LOOP_ZERO, 0, 0, 0]], someSliceAngle))
+        loopCosine(loopPoint(sliceLoopStructure, someSliceAngle))
       const sliceSine = (someSliceAngle: number) =>
-        loopSine(loopPoint([[LOOP_ONE, LOOP_ZERO, 0, 0, 0]], someSliceAngle))
+        loopSine(loopPoint(sliceLoopStructure, someSliceAngle))
       for (
         let slicePointIndex = 0;
         slicePointIndex < slicePhasedSpacer[0];
@@ -224,17 +275,18 @@ async function getPhasesFrameDescription(
             ),
             ringDepth
           ) +
-            ringPointSymmetricWeight * frameAngle +
+            1 * ringPointSymmetricWeight * frameAngle +
             Math.PI * ringPointRelativeTerminalWeight,
           cellBasePoint
         )
+        const cellTransformedPoint = cellOrientedPoint
         const cellTranslatedPoint: Vector3 = [
-          cellOrientedPoint[0] + ringPointOriginX,
-          cellOrientedPoint[1] + ringPointOriginY,
-          cellOrientedPoint[2],
+          cellTransformedPoint[0] + ringPointOriginX,
+          cellTransformedPoint[1] + ringPointOriginY,
+          cellTransformedPoint[2],
         ]
         const cellSize = rangeScopeValue(
-          1,
+          0.5,
           ringMaxTerminalWeight,
           1,
           ringPointRelativeTerminalWeight
