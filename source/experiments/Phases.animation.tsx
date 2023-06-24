@@ -3,19 +3,25 @@ import React from 'react'
 import { CellGraphic, WorldCellPoint } from '../library/CellGraphic'
 import {
   AlignedSpacerStructure,
+  LOOP_ONE,
+  LOOP_ZERO,
   SpacerSlotWeight,
+  loopCosine,
+  loopPoint,
+  loopSine,
   phasedSpacer,
   spacer,
   spacerGroup,
   spacerIntervals,
   spacerLineage,
   spacerSlotWeights,
+  spacerSymmetricSlotWeights,
 } from 'clumsy-math'
-import { Vector3 } from '../library/Vector3'
-import { reflectedPoint } from '../library/Point3'
+import { Vector3, normalizedVector, rotatedVector } from '../library/Vector3'
+import { reflectedPoint, sphericalToCartesian } from '../library/Point3'
 
-const animationFrameCount = 64 * 6
-const animationFrameRate = 20
+const animationFrameCount = 64 * 4
+const animationFrameRate = 30
 const clipStartFrameIndex = 64 * 0
 const clipFinishFrameIndex = animationFrameCount
 const backgroundColor = 'rgb(72,30,0)'
@@ -53,104 +59,204 @@ async function getPhasesFrameDescription(
 ) {
   const frameCount = animationFrameCount
   const frameIndex = clipStartFrameIndex + props.frameIndex
+  const adjustedFrameCountA = Math.floor(frameCount / 5)
+  const adjustedFrameIndexA = spacerResolutionMap([
+    frameCount,
+    [adjustedFrameCountA, 0],
+  ])[frameIndex]
+  const adjustedFrameCountB = Math.floor(frameCount / 10)
+  const adjustedFrameIndexB = spacerResolutionMap([
+    frameCount,
+    [adjustedFrameCountB, 0],
+  ])[frameIndex]
   const frameStamp = frameIndex / animationFrameCount
   const frameAngle = 2 * Math.PI * frameStamp
-  const bazCount = Math.floor(frameCount / 12)
-  const bazIndex = spacerResolutionMap([frameCount, [bazCount, 0]])[frameIndex]
-  const spacerStructureA: AlignedSpacerStructure = [
+  const adjustedFrameStampB = adjustedFrameIndexB / adjustedFrameCountB
+  const adjustedFrameAngleB = 2 * Math.PI * adjustedFrameStampB
+  const cameraDepth = -6
+  const ringDepth = -cameraDepth
+  const ringSpacerStructure: AlignedSpacerStructure = [
     13,
     [
       11,
-      spacerResolutionMap([bazCount, [bazCount - (bazCount % 11), 0]])[
-        bazIndex
-      ] % 11,
+      spacerResolutionMap([
+        adjustedFrameCountA,
+        [adjustedFrameCountA - (adjustedFrameCountA % 11), 0],
+      ])[adjustedFrameIndexA] % 11,
     ],
     [
       7,
-      spacerResolutionMap([bazCount, [bazCount - (bazCount % 7), 0]])[
-        bazIndex
-      ] % 7,
+      spacerResolutionMap([
+        adjustedFrameCountA,
+        [adjustedFrameCountA - (adjustedFrameCountA % 7), 0],
+      ])[adjustedFrameIndexA] % 7,
     ],
     [
       5,
-      spacerResolutionMap([bazCount, [bazCount - (bazCount % 5), 0]])[
-        bazIndex
-      ] % 5,
+      spacerResolutionMap([
+        adjustedFrameCountA,
+        [adjustedFrameCountA - (adjustedFrameCountA % 5), 0],
+      ])[adjustedFrameIndexA] % 5,
     ],
     [
       3,
-      spacerResolutionMap([bazCount, [bazCount - (bazCount % 3), 0]])[
-        bazIndex
-      ] % 3,
+      spacerResolutionMap([
+        adjustedFrameCountA,
+        [adjustedFrameCountA - (adjustedFrameCountA % 3), 0],
+      ])[adjustedFrameIndexA] % 3,
     ],
-    // [
-    //   2,
-    //   spacerResolutionMap([bazCount, [bazCount - (bazCount % 2), 0]])[
-    //     bazIndex
-    //   ] % 2,
-    // ],
+    [
+      2,
+      spacerResolutionMap([
+        adjustedFrameCountA,
+        [adjustedFrameCountA - (adjustedFrameCountA % 2), 0],
+      ])[adjustedFrameIndexA] % 2,
+    ],
   ]
-  const spacerA = spacer(spacerStructureA)
-  const phasedSpacerA = phasedSpacer(
-    spacerA,
-    spacerResolutionMap([
-      frameCount,
-      [frameCount - (frameCount % bazCount), 0],
-    ])[frameIndex] % bazCount
+  const ringSpacer = spacer(ringSpacerStructure)
+  const ringPhasedSpacer = phasedSpacer(
+    ringSpacer,
+    spacerResolutionMap([adjustedFrameCountA, [ringSpacer[0], 0]])[
+      adjustedFrameIndexA
+    ]
   )
-  const terminalWeightsA = spacerTerminalSlotWeights(spacerStructureA)
-  const pointRaidusA = 6
-  const pointAngleStepA = (2 * Math.PI) / spacerA[0]
+  const ringTerminalWeights = spacerTerminalSlotWeights(ringSpacerStructure)
+  const ringMaxTerminalWeight = ringTerminalWeights[0]
+  const ringSymmetricWeights = spacerSymmetricSlotWeights(spacer([12, [7, 0]]))
+  const ringMaxSymmetricWeight = ringSymmetricWeights[0]
+  const ringRadius = 1
+  const ringPointAngleStep = (2 * Math.PI) / ringPhasedSpacer[0]
   const cellsA: Array<WorldCellPoint> = []
   for (
-    let pointIndexA = 0;
-    pointIndexA < phasedSpacerA[1].length;
-    pointIndexA++
+    let ringPointIndex = 0;
+    ringPointIndex < ringPhasedSpacer[1].length;
+    ringPointIndex++
   ) {
-    const pointA = phasedSpacerA[1][pointIndexA]
-    const relativePointWeight = terminalWeightsA[pointA] / terminalWeightsA[0]
-    const pointAngleA = pointA * pointAngleStepA
-    const adjustedPointAngleA = pointAngleA + Math.PI / 2
-    const originX = pointRaidusA * Math.cos(adjustedPointAngleA)
-    const originY = pointRaidusA * Math.sin(adjustedPointAngleA)
-    const cellColor =
+    const ringPoint = ringPhasedSpacer[1][ringPointIndex]
+    const ringPointAngle = ringPoint * ringPointAngleStep
+    const ringAdjustedPointAngle = ringPointAngle + Math.PI / 2
+    const ringPointTerminalWeight = ringTerminalWeights[ringPoint]
+    const ringPointRelativeTerminalWeight =
+      ringTerminalWeights[ringPoint] / ringMaxTerminalWeight
+    const ringPointSymmetricWeight = ringSymmetricWeights[ringPoint]
+    const ringPointRelativeSymmetricWeight =
+      ringPointSymmetricWeight / ringMaxSymmetricWeight
+    const ringPointOriginX = ringRadius * Math.cos(ringAdjustedPointAngle)
+    const ringPointOriginY = ringRadius * Math.sin(ringAdjustedPointAngle)
+    const ringPointOrientationAxis = normalizedVector(
+      rotatedVector([0, 0, 1], ringPointAngle, [1, 0, 0])
+    )
+    const ringPointColor =
       colorMap[
         (spacerResolutionMap([
-          bazCount,
+          adjustedFrameCountA,
           [
-            bazCount -
-              (bazCount %
+            adjustedFrameCountA -
+              (adjustedFrameCountA %
                 spacerResolutionMap([
-                  bazCount,
-                  [bazCount - (bazCount % terminalWeightsA[pointA]), 0],
-                ])[bazIndex]),
+                  adjustedFrameCountA,
+                  [
+                    adjustedFrameCountA -
+                      (adjustedFrameCountA % ringPointTerminalWeight),
+                    0,
+                  ],
+                ])[adjustedFrameIndexA]),
             0,
           ],
-        ])[bazIndex] +
-          pointIndexA) %
+        ])[adjustedFrameIndexA] +
+          ringPointIndex) %
           colorMap.length
       ]
-    const basePoint: Vector3 = [originX, originY, 0]
-    const baseCellSize = 2
-    const cellSize =
-      relativePointWeight * (1 / terminalWeightsA[0]) * baseCellSize +
-      ((terminalWeightsA[0] - 1) / terminalWeightsA[0]) * baseCellSize
-    cellsA.push([...basePoint, cellSize, cellColor])
-    cellsA.push([
-      ...reflectedPoint(
-        [
-          [0, 0, basePoint[2]],
-          [0, 1, basePoint[2]],
-        ],
-        basePoint
-      ),
-      cellSize,
-      cellColor,
-    ])
+    const depthSpacerStructure: AlignedSpacerStructure = ringSpacerStructure
+    const depthSpacer = spacer(depthSpacerStructure)
+    const depthPhasedSpacer = phasedSpacer(
+      depthSpacer,
+      spacerResolutionMap([
+        adjustedFrameCountA,
+        [adjustedFrameCountA - (adjustedFrameCountA % depthSpacer[0]), 0],
+      ])[adjustedFrameIndexA] % depthSpacer[0]
+    )
+    const depthPointAngleStep = Math.PI / depthPhasedSpacer[0]
+    const depthCosine = (someDepthAngle: number) =>
+      loopCosine(loopPoint([[LOOP_ONE, LOOP_ZERO, 0, 0, 0]], someDepthAngle))
+    const depthSine = (someDepthAngle: number) =>
+      loopSine(loopPoint([[LOOP_ONE, LOOP_ZERO, 0, 0, 0]], someDepthAngle))
+    for (
+      let depthPointIndex = 0;
+      depthPointIndex < depthPhasedSpacer[1].length;
+      depthPointIndex++
+    ) {
+      const depthPoint = depthPhasedSpacer[1][depthPointIndex]
+      const depthPointAngle = depthPoint * depthPointAngleStep
+      const sliceSpacerStructure: AlignedSpacerStructure = ringSpacerStructure
+      const sliceSpacer = spacer(sliceSpacerStructure)
+      const slicePhasedSpacer = phasedSpacer(
+        sliceSpacer,
+        spacerResolutionMap([adjustedFrameCountA, [sliceSpacer[0], 0]])[
+          adjustedFrameIndexA
+        ]
+      )
+      const slicePointAngleStep = (2 * Math.PI) / slicePhasedSpacer[0]
+      const sliceCosine = (someSliceAngle: number) =>
+        loopCosine(loopPoint([[LOOP_ONE, LOOP_ZERO, 0, 0, 0]], someSliceAngle))
+      const sliceSine = (someSliceAngle: number) =>
+        loopSine(loopPoint([[LOOP_ONE, LOOP_ZERO, 0, 0, 0]], someSliceAngle))
+      for (
+        let slicePointIndex = 0;
+        slicePointIndex < slicePhasedSpacer[0];
+        slicePointIndex++
+      ) {
+        const slicePoint = slicePhasedSpacer[1][slicePointIndex]
+        const slicePointAngle = slicePoint * slicePointAngleStep
+        const cellBasePoint = sphericalToCartesian(
+          depthCosine,
+          depthSine,
+          sliceCosine,
+          sliceSine,
+          [ringRadius * 2, depthPointAngle, slicePointAngle]
+        )
+        const cellOrientedPoint = rotatedVector(
+          ringPointOrientationAxis,
+          Math.atan2(
+            Math.sqrt(
+              ringPointOriginX * ringPointOriginX +
+                ringPointOriginY * ringPointOriginY
+            ),
+            ringDepth
+          ) +
+            ringPointSymmetricWeight * frameAngle +
+            Math.PI * ringPointRelativeTerminalWeight,
+          cellBasePoint
+        )
+        const cellTranslatedPoint: Vector3 = [
+          cellOrientedPoint[0] + ringPointOriginX,
+          cellOrientedPoint[1] + ringPointOriginY,
+          cellOrientedPoint[2],
+        ]
+        const cellSize = rangeScopeValue(
+          1,
+          ringMaxTerminalWeight,
+          1,
+          ringPointRelativeTerminalWeight
+        )
+        cellsA.push([...cellTranslatedPoint, cellSize, ringPointColor])
+        cellsA.push([
+          ...reflectedPoint(
+            [
+              [0, 0, cellTranslatedPoint[2]],
+              [0, 1, cellTranslatedPoint[2]],
+            ],
+            cellTranslatedPoint
+          ),
+          cellSize,
+          ringPointColor,
+        ])
+      }
+    }
   }
   return (
     <CellGraphic
-      cameraDepth={-10}
+      cameraDepth={cameraDepth}
       lightDepth={500}
       perspectiveDepthFar={100}
       perspectiveDepthNear={0.1}
@@ -186,17 +292,14 @@ function spacerResolutionMap(
   )
 }
 
-// function spacerFoo(
-//   maxResolution: number,
-//   minResolution: number,
-//   frameIndex: number
-// ) {
-//   return spacerResolutionMap(
-//     maxResolution,
-//     minResolution,
-//     spacerResolutionMap(
-//       maxResolution,
-//       maxResolution - (maxResolution % minResolution)
-//     )[frameIndex] % minResolution
-//   )[frameIndex]
-// }
+function rangeScopeValue(
+  rangeScalar: number,
+  rangeResolution: number,
+  rangeScope: number,
+  rangeStamp: number
+) {
+  return (
+    rangeStamp * (rangeScope / rangeResolution) * rangeScalar +
+    ((rangeResolution - rangeScope) / rangeResolution) * rangeScalar
+  )
+}
