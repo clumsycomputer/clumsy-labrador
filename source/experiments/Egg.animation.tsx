@@ -11,6 +11,7 @@ import {
 import { Point3, sphericalToCartesian } from '../library/Point3'
 import { rotatedVector } from '../library/Vector3'
 import getColormap from 'colormap'
+import { normalizedAngle } from '../library/miscellaneous'
 
 const animationFrameCount = 64 * 1
 const animationFrameRate = 20
@@ -58,17 +59,29 @@ async function getEggFrameDescription(props: GetEggFrameDescriptionProps) {
     depthSpacer: spacer([1024, [1024, 0]]),
     depthCosine: Math.cos,
     depthSine: Math.sin,
-    getDepthContextData: () => ({}),
-    getDepthCellAnglePhase: () => 0,
-    getSliceSpacer: () => spacer([24, [3, 0]]),
-    getSliceAngleFunctions: () => [Math.cos, Math.sin],
+    getDepthContextData: ({ depthSpacer, depthSpacerPoint }) => {
+      const depthRelativeSpacerPoint = depthSpacerPoint / depthSpacer[0]
+      return { depthRelativeSpacerPoint }
+    },
     getSliceContextData: () => ({}),
-    getSliceCellAnglePhase: ({ depthSpacer, depthSpacerPoint }) =>
-      ((3 * 2 * Math.PI) / depthSpacer[0]) * depthSpacerPoint + 3 * frameAngle,
-    getCellRadius: ({ depthSpacer, depthSpacerPoint }) =>
-      4 +
-      0.3 *
-        Math.sin(((211 * (2 * Math.PI)) / depthSpacer[0]) * depthSpacerPoint),
+    getDepthCellAnglePhase: () => 0,
+    getSliceCellAnglePhase: ({
+      depthSpacer,
+      depthSpacerPoint,
+      //   depthRelativeSpacerPoint,
+    }) => {
+      const depthRelativeSpacerPoint = depthSpacerPoint / depthSpacer[0]
+      return (
+        (Math.PI / depthSpacer[0]) * depthSpacerPoint +
+        3 * frameAngle +
+        (Math.PI / 3 + (Math.PI / 5) * Math.sin(frameAngle)) *
+          //   depthRelativeSpacerPoint *
+          Math.sin(3 * depthRelativeSpacerPoint * 2 * Math.PI)
+      )
+    },
+    getSliceSpacer: ({}) => spacer([8, [3, 0]]),
+    getSliceAngleFunctions: () => [Math.cos, Math.sin],
+    getCellRadius: ({}) => 4,
     getCellTransformedPoint: (cellBasePoint) => {
       return rotatedVector([1, 0, 0], frameAngle, cellBasePoint)
     },
@@ -354,7 +367,11 @@ function getLoopsoidCells<
         depthSine,
         sliceCosine,
         sliceSine,
-        [cellRadius, depthCellAngle, sliceAdjustedCellAngle]
+        [
+          cellRadius,
+          normalizedAngle(depthCellAngle),
+          normalizedAngle(sliceAdjustedCellAngle),
+        ]
       )
       const cellTransformedPoint = getCellTransformedPoint(
         cellBasePoint,
