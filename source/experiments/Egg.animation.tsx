@@ -30,8 +30,8 @@ const EggAnimationModule: AnimationModule = {
   getFrameDescription: getEggFrameDescription,
   frameCount: clipFrameCount,
   frameSize: {
-    width: 1024 * 2,
-    height: 1024 * 2,
+    width: 1024 * 5,
+    height: 1024 * 5,
   },
   animationSettings: {
     frameRate: animationFrameRate,
@@ -52,13 +52,13 @@ async function getEggFrameDescription(props: GetEggFrameDescriptionProps) {
   const frameStamp = frameIndex / animationFrameCount
   const frameAngle = 2 * Math.PI * frameStamp
   const cameraDepth = -8
+  const resolutionA = 512 * 8
   const colormapA = getColormap({
     colormap: 'phase',
-    nshades: 1024,
+    nshades: resolutionA,
     format: 'hex',
     alpha: 1,
   })
-  const resolutionA = 512 * 8
   const colormapPhaseSpacer = spacer([resolutionA, [frameCount, 0]])
   const fooRange = 0.1
   const loopStructureA: LoopStructure = [
@@ -113,7 +113,7 @@ async function getEggFrameDescription(props: GetEggFrameDescriptionProps) {
     ) => {
       return rotatedVector(
         sphericalToCartesian(loopCosineA, loopSineA, loopCosineA, loopSineA, [
-          1.5,
+          1.125,
           depthSpacerAngle,
           sliceSpacerAngle,
         ]),
@@ -122,7 +122,7 @@ async function getEggFrameDescription(props: GetEggFrameDescriptionProps) {
       )
       //   return rotatedVector([1, 0, 0], frameAngle, cellBasePoint)
     },
-    getCellSize: () => 0.05,
+    getCellSize: () => 0.0625,
     getCellColor: ({ depthSpacerPoint }) =>
       colormapA[
         (depthSpacerPoint + colormapPhaseSpacer[1][frameIndex]) %
