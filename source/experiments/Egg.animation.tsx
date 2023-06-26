@@ -1,8 +1,16 @@
 import { AnimationModule } from 'clumsy-graphics'
 import { CellGraphic, WorldCellPoint } from '../library/CellGraphic'
 import React from 'react'
-import { Spacer, spacer } from 'clumsy-math'
+import {
+  AlignedSpacerStructure,
+  Spacer,
+  phasedSpacer,
+  spacer,
+  spacerIntervals,
+} from 'clumsy-math'
 import { Point3, sphericalToCartesian } from '../library/Point3'
+import { rotatedVector } from '../library/Vector3'
+import getColormap from 'colormap'
 
 const animationFrameCount = 64 * 1
 const animationFrameRate = 20
@@ -15,8 +23,8 @@ const EggAnimationModule: AnimationModule = {
   getFrameDescription: getEggFrameDescription,
   frameCount: clipFrameCount,
   frameSize: {
-    width: 1024 * 1,
-    height: 1024 * 1,
+    width: 1024 * 2,
+    height: 1024 * 2,
   },
   animationSettings: {
     frameRate: animationFrameRate,
@@ -36,34 +44,65 @@ async function getEggFrameDescription(props: GetEggFrameDescriptionProps) {
   const frameIndex = clipStartFrameIndex + props.frameIndex
   const frameStamp = frameIndex / animationFrameCount
   const frameAngle = 2 * Math.PI * frameStamp
-  const cameraDepth = -10
+  const cameraDepth = -8
+  const colormapA = getColormap({
+    colormap: 'phase',
+    nshades: 1024,
+    format: 'hex',
+    alpha: 1,
+  })
+  const colormapPhaseSpacer = spacer([1024, [frameCount, 0]])
   const loopsoidCellsA = getLoopsoidCells({
     baseContextData: {},
     loopsoidOrigin: [0, 0, 0],
-    depthSpacer: spacer([12, [12, 0]]),
+    depthSpacer: spacer([1024, [1024, 0]]),
     depthCosine: Math.cos,
     depthSine: Math.sin,
     getDepthContextData: () => ({}),
     getDepthCellAnglePhase: () => 0,
-    getSliceSpacer: () => spacer([24, [24, 0]]),
-    getSliceContextData: () => ({}),
-    getSliceCellAnglePhase: () => 0,
+    getSliceSpacer: () => spacer([24, [3, 0]]),
     getSliceAngleFunctions: () => [Math.cos, Math.sin],
-    getCellRadius: () => 4,
-    getCellTransformedPoint: (cellBasePoint) => cellBasePoint,
+    getSliceContextData: () => ({}),
+    getSliceCellAnglePhase: ({ depthSpacer, depthSpacerPoint }) =>
+      ((3 * 2 * Math.PI) / depthSpacer[0]) * depthSpacerPoint + 3 * frameAngle,
+    getCellRadius: ({ depthSpacer, depthSpacerPoint }) =>
+      4 +
+      0.3 *
+        Math.sin(((211 * (2 * Math.PI)) / depthSpacer[0]) * depthSpacerPoint),
+    getCellTransformedPoint: (cellBasePoint) => {
+      return rotatedVector([1, 0, 0], frameAngle, cellBasePoint)
+    },
     getCellSize: () => 0.1,
-    getCellColor: () => 'white',
+    getCellColor: ({ depthSpacerPoint }) =>
+      colormapA[
+        (depthSpacerPoint + colormapPhaseSpacer[1][frameIndex]) %
+          colormapA.length
+      ],
   })
   return (
     <CellGraphic
       cameraDepth={cameraDepth}
-      lightDepth={100}
+      lightDepth={500}
       perspectiveDepthFar={100}
       perspectiveDepthNear={0.1}
       perspectiveVerticalFieldOfViewAngle={(1.75 / 3) * Math.PI}
       backgroundColor={'black'}
       worldCellPoints={loopsoidCellsA}
     />
+  )
+}
+
+function spacerResolutionMap(
+  someSpacerStructure: AlignedSpacerStructure
+): Array<number> {
+  return spacerIntervals(spacer(someSpacerStructure)).reduce<Array<number>>(
+    (result, currentPointInterval, pointIndex) => {
+      for (let i = 0; i < currentPointInterval; i++) {
+        result.push(pointIndex)
+      }
+      return result
+    },
+    []
   )
 }
 
