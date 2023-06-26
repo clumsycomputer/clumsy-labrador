@@ -3,17 +3,23 @@ import { CellGraphic, WorldCellPoint } from '../library/CellGraphic'
 import React from 'react'
 import {
   AlignedSpacerStructure,
+  LOOP_ONE,
+  LOOP_ZERO,
+  LoopStructure,
   Spacer,
+  loopCosine,
+  loopPoint,
+  loopSine,
   phasedSpacer,
   spacer,
   spacerIntervals,
 } from 'clumsy-math'
-import { Point3, sphericalToCartesian } from '../library/Point3'
+import { Point3, reflectedPoint, sphericalToCartesian } from '../library/Point3'
 import { rotatedVector } from '../library/Vector3'
 import getColormap from 'colormap'
 import { normalizedAngle } from '../library/miscellaneous'
 
-const animationFrameCount = 64 * 1
+const animationFrameCount = 64 * 2
 const animationFrameRate = 20
 const clipStartFrameIndex = 64 * 0
 const clipFinishFrameIndex = animationFrameCount
@@ -52,40 +58,71 @@ async function getEggFrameDescription(props: GetEggFrameDescriptionProps) {
     format: 'hex',
     alpha: 1,
   })
-  const colormapPhaseSpacer = spacer([1024, [frameCount, 0]])
+  const resolutionA = 512 * 8
+  const colormapPhaseSpacer = spacer([resolutionA, [frameCount, 0]])
+  const fooRange = 0.1
+  const loopStructureA: LoopStructure = [
+    [0.95, LOOP_ONE, frameAngle, 0, 0],
+    [0.9, LOOP_ONE, normalizedAngle(-2 * frameAngle), 0, 0],
+    [0.825, LOOP_ONE, normalizedAngle(4 * frameAngle), 0, 0],
+  ]
+  const loopCosineA = (angle: number) =>
+    loopCosine(loopPoint(loopStructureA, angle))
+  const loopSineA = (angle: number) =>
+    loopSine(loopPoint(loopStructureA, angle))
   const loopsoidCellsA = getLoopsoidCells({
     baseContextData: {},
     loopsoidOrigin: [0, 0, 0],
-    depthSpacer: spacer([1024, [1024, 0]]),
-    depthCosine: Math.cos,
-    depthSine: Math.sin,
-    getDepthContextData: ({ depthSpacer, depthSpacerPoint }) => {
-      const depthRelativeSpacerPoint = depthSpacerPoint / depthSpacer[0]
-      return { depthRelativeSpacerPoint }
-    },
-    getSliceContextData: () => ({}),
+    depthSpacer: spacer([
+      resolutionA,
+      [2039, spacer([2039, [frameCount, 0]])[1][frameIndex]],
+    ]),
+    depthCosine: loopCosineA,
+    depthSine: loopSineA,
+    getDepthContextData: (contextData: ContextDataA) => ({
+      depthSpacerAngle:
+        (Math.PI / contextData.depthSpacer[0]) * contextData.depthSpacerPoint,
+      depthRelativeSpacerPoint:
+        contextData.depthSpacerPoint / contextData.depthSpacer[0],
+    }),
+    getSliceContextData: (contextData: ContextDataD) => ({
+      sliceSpacerAngle:
+        ((2 * Math.PI) / contextData.sliceSpacer[0]) *
+        contextData.sliceSpacerPoint,
+    }),
     getDepthCellAnglePhase: () => 0,
     getSliceCellAnglePhase: ({
       depthSpacer,
       depthSpacerPoint,
-      //   depthRelativeSpacerPoint,
+      depthRelativeSpacerPoint,
     }) => {
-      const depthRelativeSpacerPoint = depthSpacerPoint / depthSpacer[0]
       return (
         (Math.PI / depthSpacer[0]) * depthSpacerPoint +
         3 * frameAngle +
         (Math.PI / 3 + (Math.PI / 5) * Math.sin(frameAngle)) *
           //   depthRelativeSpacerPoint *
-          Math.sin(3 * depthRelativeSpacerPoint * 2 * Math.PI)
+          Math.sin(211 * depthRelativeSpacerPoint * 2 * Math.PI)
       )
     },
     getSliceSpacer: ({}) => spacer([8, [3, 0]]),
-    getSliceAngleFunctions: () => [Math.cos, Math.sin],
+    getSliceAngleFunctions: () => [loopCosineA, loopSineA],
     getCellRadius: ({}) => 4,
-    getCellTransformedPoint: (cellBasePoint) => {
-      return rotatedVector([1, 0, 0], frameAngle, cellBasePoint)
+    getCellTransformedPoint: (
+      cellBasePoint,
+      { depthSpacerAngle, sliceSpacerAngle }
+    ) => {
+      return rotatedVector(
+        sphericalToCartesian(loopCosineA, loopSineA, loopCosineA, loopSineA, [
+          1.5,
+          depthSpacerAngle,
+          sliceSpacerAngle,
+        ]),
+        frameAngle,
+        rotatedVector([1, 0, 0], frameAngle, cellBasePoint)
+      )
+      //   return rotatedVector([1, 0, 0], frameAngle, cellBasePoint)
     },
-    getCellSize: () => 0.1,
+    getCellSize: () => 0.05,
     getCellColor: ({ depthSpacerPoint }) =>
       colormapA[
         (depthSpacerPoint + colormapPhaseSpacer[1][frameIndex]) %
@@ -206,9 +243,9 @@ interface GetLoopsoidCellsApi<
 type LoopAngleFunction = (inputAngle: number) => number
 
 type ContextDataA<
-  BaseContextData extends object,
-  DepthContextData extends object,
-  SliceContextData extends object
+  BaseContextData extends object = object,
+  DepthContextData extends object = object,
+  SliceContextData extends object = object
 > = Data<
   BaseContextData,
   Data<
@@ -224,24 +261,18 @@ type ContextDataA<
 >
 
 type ContextDataB<
-  BaseContextData extends object,
-  DepthContextData extends object,
-  SliceContextData extends object
+  BaseContextData extends object = object,
+  DepthContextData extends object = object,
+  SliceContextData extends object = object
 > = Data<
   ContextDataA<BaseContextData, DepthContextData, SliceContextData>,
-  ReturnType<
-    GetLoopsoidCellsApi<
-      BaseContextData,
-      DepthContextData,
-      SliceContextData
-    >['getDepthContextData']
-  >
+  DepthContextData
 >
 
 type ContextDataC<
-  BaseContextData extends object,
-  DepthContextData extends object,
-  SliceContextData extends object
+  BaseContextData extends object = object,
+  DepthContextData extends object = object,
+  SliceContextData extends object = object
 > = Data<
   ContextDataB<BaseContextData, DepthContextData, SliceContextData>,
   {
@@ -250,9 +281,9 @@ type ContextDataC<
 >
 
 type ContextDataD<
-  BaseContextData extends object,
-  DepthContextData extends object,
-  SliceContextData extends object
+  BaseContextData extends object = object,
+  DepthContextData extends object = object,
+  SliceContextData extends object = object
 > = Data<
   ContextDataC<BaseContextData, DepthContextData, SliceContextData>,
   {
@@ -262,24 +293,18 @@ type ContextDataD<
 >
 
 type ContextDataE<
-  BaseContextData extends object,
-  DepthContextData extends object,
-  SliceContextData extends object
+  BaseContextData extends object = object,
+  DepthContextData extends object = object,
+  SliceContextData extends object = object
 > = Data<
   ContextDataD<BaseContextData, DepthContextData, SliceContextData>,
-  ReturnType<
-    GetLoopsoidCellsApi<
-      BaseContextData,
-      DepthContextData,
-      SliceContextData
-    >['getSliceContextData']
-  >
+  SliceContextData
 >
 
 type ContextDataF<
-  BaseContextData extends object,
-  DepthContextData extends object,
-  SliceContextData extends object
+  BaseContextData extends object = object,
+  DepthContextData extends object = object,
+  SliceContextData extends object = object
 > = Data<
   ContextDataE<BaseContextData, DepthContextData, SliceContextData>,
   {
