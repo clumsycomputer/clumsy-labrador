@@ -57,4 +57,5 @@ export function sphericalToCartesian(
     someSpherical[0] * currentDepthSine * sliceCosine(someSpherical[2]),
     someSpherical[0] * currentDepthSine * sliceSine(someSpherical[2]),
     someSpherical[0] * depthCosine(someSpherical[1]),
-  ]}
+  ]
+}

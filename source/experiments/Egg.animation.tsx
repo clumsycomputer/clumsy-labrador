@@ -6,6 +6,7 @@ import {
   LoopStructure,
   Spacer,
   loopCosine,
+  loopPendulum,
   loopPoint,
   loopSine,
   spacer,
@@ -19,10 +20,10 @@ import { normalizedVector, rotatedVector } from '../library/Vector3'
 import { normalizedAngle } from '../library/miscellaneous'
 import getColormap from 'colormap'
 
-const animationFrameCount = 64 * 3
+const animationFrameCount = 64 * 6
 const animationFrameRate = 20
 const clipStartFrameIndex = 64 * 0
-const clipFinishFrameIndex = animationFrameCount
+const clipFinishFrameIndex = 64 * 6
 const clipFrameCount = clipFinishFrameIndex - clipStartFrameIndex
 
 const EggAnimationModule: AnimationModule = {
@@ -30,8 +31,8 @@ const EggAnimationModule: AnimationModule = {
   getFrameDescription: getEggFrameDescription,
   frameCount: clipFrameCount,
   frameSize: {
-    width: 1024 * 1,
-    height: 1024 * 1,
+    width: 1024 * 2,
+    height: 1024 * 2,
   },
   animationSettings: {
     frameRate: animationFrameRate,
@@ -53,25 +54,84 @@ async function getEggFrameDescription(props: GetEggFrameDescriptionProps) {
   const frameAngle = 2 * Math.PI * frameStamp
   const cameraDepth = -8
   const loopStructureA: LoopStructure = [
-    [0.975, LOOP_ZERO, 0, 0, 0],
-    [0.95, LOOP_ZERO, 0, 0, 0],
-    [0.9, LOOP_ZERO, 0, 0, 0],
+    [LOOP_ONE, 0.15, 0, 0, 0],
+    [0.95, 0.5, 0, 0, 0],
+    [0.925, LOOP_ZERO, 0, 0, 0],
   ]
-  const depthResolution = 1024
+  const depthSpacer = spacer([512, [512, 0]])
+  const depthOverlaySpacer = spacer([512, [211, 0]])
   const colormapA = getColormap({
     colormap: 'phase',
-    nshades: depthResolution,
+    nshades: depthSpacer[0],
     format: 'hex',
     alpha: 1,
   })
-  const fooFrequency = 3 + 3 * Math.sin(3 * frameAngle)
-  const sliceSymmetricWeights = spacerSymmetricSlotWeights(spacer([12, [7, 0]]))
-  const frameColorMap = spacer([depthResolution, [frameCount, 0]])
-  const depthSpacer = spacer([depthResolution, [511, 0]])
+  const downsampleFrameDataA = downsampledFrameData(
+    frameCount,
+    frameIndex,
+    Math.floor(frameCount / 5)
+  )
+  const sliceBaseSpacer = spacer([
+    13,
+    [
+      11,
+      spacerResolutionMap([
+        downsampleFrameDataA[0],
+        [downsampleFrameDataA[0] - (downsampleFrameDataA[0] % 11), 0],
+      ])[downsampleFrameDataA[1]] % 11,
+    ],
+    [
+      7,
+      spacerResolutionMap([
+        downsampleFrameDataA[0],
+        [downsampleFrameDataA[0] - (downsampleFrameDataA[0] % 7), 0],
+      ])[downsampleFrameDataA[1]] % 7,
+    ],
+    [
+      5,
+      spacerResolutionMap([
+        downsampleFrameDataA[0],
+        [downsampleFrameDataA[0] - (downsampleFrameDataA[0] % 5), 0],
+      ])[downsampleFrameDataA[1]] % 5,
+    ],
+    [
+      3,
+      spacerResolutionMap([
+        downsampleFrameDataA[0],
+        [downsampleFrameDataA[0] - (downsampleFrameDataA[0] % 3), 0],
+      ])[downsampleFrameDataA[1]] % 3,
+    ],
+    [
+      2,
+      spacerResolutionMap([
+        downsampleFrameDataA[0],
+        [downsampleFrameDataA[0] - (downsampleFrameDataA[0] % 2), 0],
+      ])[downsampleFrameDataA[1]] % 2,
+    ],
+  ])
+  const sliceSymmetricWeights = spacerSymmetricSlotWeights(spacer([13, [7, 0]]))
+  const sliceSpacer: Spacer = [
+    sliceBaseSpacer[0],
+    Array.from(
+      sliceBaseSpacer[1].reduce<Set<number>>(
+        (resultPoints, someSpacerPoint) => {
+          const pointZeroDistance = someSpacerPoint
+          const pointResolutionDistance = sliceBaseSpacer[0] - someSpacerPoint
+          const mirrorPoint =
+            pointZeroDistance <= pointResolutionDistance
+              ? (sliceBaseSpacer[0] - pointZeroDistance) % sliceBaseSpacer[0]
+              : pointResolutionDistance
+          resultPoints.add(someSpacerPoint)
+          resultPoints.add(mirrorPoint)
+          return resultPoints
+        },
+        new Set<number>()
+      )
+    ),
+  ]
+  const frameColorMap = spacer([depthSpacer[0], [frameCount, 0]])
   const loopsoidCellsA = getLoopsoidCells({
-    baseContextData: {
-      sliceSymmetricWeights,
-    },
+    baseContextData: {},
     loopsoidOrigin: [0, 0, 0],
     depthSpacer: depthSpacer,
     depthCosine: (angle: number) =>
@@ -83,7 +143,7 @@ async function getEggFrameDescription(props: GetEggFrameDescriptionProps) {
       (angle: number) =>
         loopSine(loopPoint(loopStructureA, normalizedAngle(angle))),
     ],
-    getSliceSpacer: ({}) => spacer([12, [3, 0]]),
+    getSliceSpacer: ({}) => sliceSpacer,
     getDepthCellAnglePhase: ({}) => 0,
     getCellRadius: ({}) => 4,
     getCellSize: () => 0.1,
@@ -92,8 +152,11 @@ async function getEggFrameDescription(props: GetEggFrameDescriptionProps) {
         (depthSpacerPoint + frameColorMap[1][frameIndex]) % colormapA.length
       ],
     getDepthContextData: ({ depthSpacer, depthSpacerPoint }: ContextDataA) => {
+      const depthSpacerStamp = depthSpacerPoint / depthSpacer[0]
+      const depthSpacerAngle = 2 * Math.PI * depthSpacerStamp
       return {
-        depthSpacerStamp: depthSpacerPoint / depthSpacer[0],
+        depthSpacerStamp,
+        depthSpacerAngle,
       }
     },
     getSliceContextData: (contextData: ContextDataE) => {
@@ -101,56 +164,31 @@ async function getEggFrameDescription(props: GetEggFrameDescriptionProps) {
     },
     getSliceCellAnglePhase: ({
       depthSpacerStamp,
-      sliceSymmetricWeights,
+      depthSpacerAngle,
       sliceSpacerPoint,
       sliceSine,
     }) => {
+      const sliceMaxPointWeight = sliceSymmetricWeights[0]
+      const slicePointWeight = sliceSymmetricWeights[sliceSpacerPoint]
+      const sliceRelativePointWeight = slicePointWeight / sliceMaxPointWeight
+      const angleSpreadRange = ((2 * Math.PI) / 13) * slicePointWeight
+      const spreadFrequency = 13 * 13
       return (
-        (fooFrequency * 2 * Math.PI +
-          (fooFrequency / sliceSymmetricWeights[sliceSpacerPoint]) *
-            2 *
-            Math.PI *
-            sliceSine(2 * Math.PI * depthSpacerStamp + frameAngle)) *
-        sliceSine(
-          sliceSymmetricWeights[sliceSpacerPoint] *
-            (2 * Math.PI * depthSpacerStamp +
-              frameAngle +
-              Math.PI / sliceSymmetricWeights[sliceSpacerPoint])
-        )
+        angleSpreadRange *
+          sliceSine(spreadFrequency * depthSpacerAngle + frameAngle) +
+        depthSpacerAngle
       )
-      //   return (Math.PI / depthSpacer[0]) * depthSpacerPoint
     },
-    getCellTransformedPoint: (
-      cellBasePoint,
-      {
-        depthCosine,
-        depthSine,
-        sliceCosine,
-        sliceSine,
-        depthCellAngle,
-        sliceCellAngle,
-      }
-    ) => {
+    getCellTransformedPoint: (cellBasePoint, {}) => {
       const uprightPoint = rotatedVector([0, 0, 1], -Math.PI / 2, cellBasePoint)
       const rotatedPoint = rotatedVector([1, 0, 0], frameAngle, uprightPoint)
-      //   const twistedPoint = rotatedVector(
-      //     sphericalToCartesian(depthCosine, depthSine, sliceCosine, sliceSine, [
-      //       1.125,
-      //       depthCellAngle,
-      //       sliceCellAngle,
-      //     ]),
-      //     frameAngle,
-      //     rotatedPoint
-      //   )
       return rotatedPoint
     },
   })
   const loopsoidCellsB = getLoopsoidCells({
-    baseContextData: {
-      sliceSymmetricWeights,
-    },
+    baseContextData: {},
     loopsoidOrigin: [0, 0, 0],
-    depthSpacer: depthSpacer,
+    depthSpacer: depthOverlaySpacer,
     depthCosine: (angle: number) =>
       loopCosine(loopPoint(loopStructureA, angle)),
     depthSine: (angle: number) => loopSine(loopPoint(loopStructureA, angle)),
@@ -160,17 +198,17 @@ async function getEggFrameDescription(props: GetEggFrameDescriptionProps) {
       (angle: number) =>
         loopSine(loopPoint(loopStructureA, normalizedAngle(angle))),
     ],
-    getSliceSpacer: ({}) => spacer([12, [3, 0]]),
+    getSliceSpacer: ({}) => sliceSpacer,
     getDepthCellAnglePhase: ({}) => 0,
     getCellRadius: ({}) => 4,
-    getCellSize: () => 0.1,
-    getCellColor: ({ depthSpacerPoint }) =>
-      colormapA[
-        (depthSpacerPoint + frameColorMap[1][frameIndex]) % colormapA.length
-      ],
+    getCellSize: () => 0.1 + 1e-4,
+    getCellColor: ({ depthSpacerPoint }) => 'black',
     getDepthContextData: ({ depthSpacer, depthSpacerPoint }: ContextDataA) => {
+      const depthSpacerStamp = depthSpacerPoint / depthSpacer[0]
+      const depthSpacerAngle = 2 * Math.PI * depthSpacerStamp
       return {
-        depthSpacerStamp: depthSpacerPoint / depthSpacer[0],
+        depthSpacerStamp,
+        depthSpacerAngle,
       }
     },
     getSliceContextData: (contextData: ContextDataE) => {
@@ -178,49 +216,24 @@ async function getEggFrameDescription(props: GetEggFrameDescriptionProps) {
     },
     getSliceCellAnglePhase: ({
       depthSpacerStamp,
-      sliceSymmetricWeights,
+      depthSpacerAngle,
       sliceSpacerPoint,
       sliceSine,
     }) => {
+      const sliceMaxPointWeight = sliceSymmetricWeights[0]
+      const slicePointWeight = sliceSymmetricWeights[sliceSpacerPoint]
+      const sliceRelativePointWeight = slicePointWeight / sliceMaxPointWeight
+      const angleSpreadRange = ((2 * Math.PI) / 13) * slicePointWeight
+      const spreadFrequency = 13 * 13
       return (
-        -(
-          fooFrequency * 2 * Math.PI +
-          (fooFrequency / sliceSymmetricWeights[sliceSpacerPoint]) *
-            2 *
-            Math.PI *
-            sliceSine(2 * Math.PI * depthSpacerStamp + frameAngle)
-        ) *
-        sliceSine(
-          sliceSymmetricWeights[sliceSpacerPoint] *
-            (2 * Math.PI * depthSpacerStamp +
-              frameAngle +
-              Math.PI / sliceSymmetricWeights[sliceSpacerPoint])
-        )
+        angleSpreadRange *
+          sliceSine(spreadFrequency * depthSpacerAngle + frameAngle) +
+        depthSpacerAngle
       )
-      //   return (Math.PI / depthSpacer[0]) * depthSpacerPoint
     },
-    getCellTransformedPoint: (
-      cellBasePoint,
-      {
-        depthCosine,
-        depthSine,
-        sliceCosine,
-        sliceSine,
-        depthCellAngle,
-        sliceCellAngle,
-      }
-    ) => {
+    getCellTransformedPoint: (cellBasePoint, {}) => {
       const uprightPoint = rotatedVector([0, 0, 1], -Math.PI / 2, cellBasePoint)
       const rotatedPoint = rotatedVector([1, 0, 0], frameAngle, uprightPoint)
-      //   const twistedPoint = rotatedVector(
-      //     sphericalToCartesian(depthCosine, depthSine, sliceCosine, sliceSine, [
-      //       1.125,
-      //       depthCellAngle,
-      //       sliceCellAngle,
-      //     ]),
-      //     frameAngle,
-      //     rotatedPoint
-      //   )
       return rotatedPoint
     },
   })
@@ -516,9 +529,11 @@ function getLoopsoidCells<
         ...contextDataE,
         ...getSliceContextData(contextDataE),
       }
-      const sliceCellAngle =
-        sliceSpacerPoint * cellSliceAngleStep +
-        getSliceCellAnglePhase(contextDataF)
+      const sliceCellAngle = sliceSpacerPoint * cellSliceAngleStep
+      const sliceCellAngleA =
+        sliceCellAngle + getSliceCellAnglePhase(contextDataF)
+      const sliceCellAngleB =
+        sliceCellAngle - getSliceCellAnglePhase(contextDataF)
       //   const sliceAdjustedCellAngle = -sliceCellAngle + Math.PI / 2
       const cellRadius = getCellRadius(contextDataF)
       const contextDataG = {
@@ -526,7 +541,7 @@ function getLoopsoidCells<
         sliceCellAngle,
         cellRadius,
       }
-      const cellBasePoint = sphericalToCartesian(
+      const cellBasePointA = sphericalToCartesian(
         depthCosine,
         depthSine,
         sliceCosine,
@@ -534,24 +549,63 @@ function getLoopsoidCells<
         [
           cellRadius,
           normalizedAngle(depthCellAngle),
-          normalizedAngle(sliceCellAngle),
+          normalizedAngle(sliceCellAngleA),
         ]
       )
-      const cellTransformedPoint = getCellTransformedPoint(
-        cellBasePoint,
+      const cellTransformedPointA = getCellTransformedPoint(
+        cellBasePointA,
         contextDataG
       )
-      const cellTranslatedPoint: Point3 = [
-        cellTransformedPoint[0] + loopsoidOrigin[0],
-        cellTransformedPoint[1] + loopsoidOrigin[1],
-        cellTransformedPoint[2] + loopsoidOrigin[2],
+      const cellTranslatedPointA: Point3 = [
+        cellTransformedPointA[0] + loopsoidOrigin[0],
+        cellTransformedPointA[1] + loopsoidOrigin[1],
+        cellTransformedPointA[2] + loopsoidOrigin[2],
       ]
-      resultLoopsoidCells.push([
-        ...cellTranslatedPoint,
-        getCellSize(contextDataG),
-        getCellColor(contextDataG),
-      ])
+      const cellBasePointB = sphericalToCartesian(
+        depthCosine,
+        depthSine,
+        sliceCosine,
+        sliceSine,
+        [
+          cellRadius,
+          normalizedAngle(depthCellAngle),
+          normalizedAngle(sliceCellAngleB),
+        ]
+      )
+      const cellTransformedPointB = getCellTransformedPoint(
+        cellBasePointB,
+        contextDataG
+      )
+      const cellTranslatedPointB: Point3 = [
+        cellTransformedPointB[0] + loopsoidOrigin[0],
+        cellTransformedPointB[1] + loopsoidOrigin[1],
+        cellTransformedPointB[2] + loopsoidOrigin[2],
+      ]
+      const cellSize = getCellSize(contextDataG)
+      const cellColor = getCellColor(contextDataG)
+      resultLoopsoidCells.push([...cellTranslatedPointA, cellSize, cellColor])
+      resultLoopsoidCells.push([...cellTranslatedPointB, cellSize, cellColor])
     }
   }
   return resultLoopsoidCells
+}
+
+function noteFrequency(
+  baseFrequency: number,
+  octaveResolution: number,
+  noteIndex: number
+) {
+  return Math.pow(2, noteIndex / octaveResolution) * baseFrequency
+}
+
+function rangeScopeValue(
+  rangeScalar: number,
+  rangeResolution: number,
+  rangeScope: number,
+  rangeStamp: number
+) {
+  return (
+    rangeStamp * (rangeScope / rangeResolution) * rangeScalar +
+    ((rangeResolution - rangeScope) / rangeResolution) * rangeScalar
+  )
 }
