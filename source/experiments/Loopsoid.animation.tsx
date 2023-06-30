@@ -3,8 +3,16 @@ import { CellGraphic, WorldCellPoint } from '../library/CellGraphic'
 import React from 'react'
 import { sphericalToCartesian } from '../library/Point3'
 import { rotatedVector } from '../library/Vector3'
-import { prime, primeContainer } from 'clumsy-math'
+import {
+  AlignedSpacerStructure,
+  prime,
+  primeContainer,
+  spacer,
+  spacerIntervals,
+  spacerSymmetricSlotWeights,
+} from 'clumsy-math'
 import { normalizedAngle } from '../library/miscellaneous'
+import getColormap from 'colormap'
 
 const animationFrameCount = 64 * 4
 const animationFrameRate = 20
@@ -40,84 +48,36 @@ async function getLoopsoidFrameDescription(
     frameCount: animationFrameCount,
     frameIndex: clipStartFrameIndex + props.frameIndex,
   })
+  const subFrameDataA = getSubFrameData({
+    frameCount: rootFrameData.frameCount,
+    frameIndex: rootFrameData.frameIndex,
+    subFrameCount: Math.floor(rootFrameData.frameCount / 2),
+  })
   const cameraDepth = -10
-  const loopsoidResolution = 128
+  const loopsoidResolution = 2048
   const loopsoidCellsA: Array<WorldCellPoint> = []
   const depthCellAngleStep = Math.PI / loopsoidResolution
   const sliceCellAngleStep = (2 * Math.PI) / loopsoidResolution
   for (let cellIndex = 0; cellIndex < loopsoidResolution; cellIndex++) {
     const depthCellAngle =
-      2 * Math.PI * triangleWave(cellIndex * depthCellAngleStep) +
+      42 * 2 * Math.PI * triangleWave(cellIndex * depthCellAngleStep) +
       rootFrameData.frameAngle
     const sliceCellAngleA =
-      Math.PI / 3 +
-      rootFrameData.frameAngle +
-      (Math.PI / 3) *
-        Math.sin(
-          (211 + rootFrameData.frameIndex * 2) *
-            cellIndex *
-            sliceCellAngleStep +
-            rootFrameData.frameAngle
-        )
+      (Math.PI / 12) * Math.sin(cellIndex * sliceCellAngleStep) + Math.PI
     const cellBasePointA = sphericalToCartesian(
       Math.cos,
       Math.sin,
       Math.cos,
       Math.sin,
-      [
-        rangeScopeValue(
-          4,
-          12,
-          1,
-          Math.sin(
-            211 * cellIndex * sliceCellAngleStep - rootFrameData.frameAngle
-          )
-        ),
-        depthCellAngle,
-        sliceCellAngleA,
-      ]
+      [4, depthCellAngle, sliceCellAngleA]
     )
     const cellOrientedPointA = rotatedVector(
       [1, 0, 0],
       rootFrameData.frameAngle,
       cellBasePointA
     )
-    loopsoidCellsA.push([...cellOrientedPointA, 0.1, 'white'])
-    const sliceCellAngleB =
-      Math.PI -
-      (Math.PI / 3 +
-        rootFrameData.frameAngle +
-        (Math.PI / 3) *
-          Math.sin(
-            (211 + rootFrameData.frameIndex * 2) *
-              cellIndex *
-              sliceCellAngleStep +
-              rootFrameData.frameAngle
-          ))
-    const cellBasePointB = sphericalToCartesian(
-      Math.cos,
-      Math.sin,
-      Math.cos,
-      Math.sin,
-      [
-        rangeScopeValue(
-          4,
-          12,
-          1,
-          Math.sin(
-            211 * cellIndex * sliceCellAngleStep - rootFrameData.frameAngle
-          )
-        ),
-        depthCellAngle,
-        sliceCellAngleB,
-      ]
-    )
-    const cellOrientedPointB = rotatedVector(
-      [1, 0, 0],
-      rootFrameData.frameAngle,
-      cellBasePointB
-    )
-    loopsoidCellsA.push([...cellOrientedPointB, 0.1, 'white'])
+    const cellColor = 'white'
+    loopsoidCellsA.push([...cellOrientedPointA, 0.075, cellColor])
   }
   return (
     <CellGraphic
@@ -146,6 +106,41 @@ function getFrameData(api: GetFrameDataApi) {
     frameStamp,
     frameAngle: 2 * Math.PI * frameStamp,
   }
+}
+
+interface GetrootFrameDatapi {
+  frameCount: number
+  frameIndex: number
+  subFrameCount: number
+}
+
+function getSubFrameData(api: GetrootFrameDatapi) {
+  const { frameCount, subFrameCount, frameIndex } = api
+  const subFrameIndex = spacerResolutionMap([frameCount, [subFrameCount, 0]])[
+    frameIndex
+  ]
+  const subFrameStamp = subFrameIndex / subFrameCount
+  const subFrameAngle = 2 * Math.PI * subFrameStamp
+  return {
+    frameCount: subFrameCount,
+    frameIndex: subFrameIndex,
+    frameStamp: subFrameStamp,
+    frameAngle: subFrameAngle,
+  }
+}
+
+function spacerResolutionMap(
+  someSpacerStructure: AlignedSpacerStructure
+): Array<number> {
+  return spacerIntervals(spacer(someSpacerStructure)).reduce<Array<number>>(
+    (result, currentPointInterval, pointIndex) => {
+      for (let i = 0; i < currentPointInterval; i++) {
+        result.push(pointIndex)
+      }
+      return result
+    },
+    []
+  )
 }
 
 function triangleWave(inputAngle: number): number {
