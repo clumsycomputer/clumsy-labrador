@@ -125,7 +125,7 @@ async function getLoopsoidFrameDescription(
       ringPointRootWeightStamp * ringPointDeltas[1] + ringPointOrigin[1],
       ringPointRootWeightStamp * ringPointDeltas[2] + ringPointOrigin[2],
     ]
-    const loopsoidResolution = 256
+    const loopsoidResolution = 512
     const loopsoidRadius =
       (rootRadius / rootResolution) * ringPointRootWeightStamp * 2 + 2
     const depthCellAngleStep = Math.PI / loopsoidResolution
@@ -135,7 +135,7 @@ async function getLoopsoidFrameDescription(
         0.975,
         LOOP_ONE,
         ringPointAngle,
-        normalizedAngle(-4 * rootFrameData.frameAngle),
+        normalizedAngle(rootFrameData.frameAngle),
         0,
       ],
       [
@@ -149,7 +149,7 @@ async function getLoopsoidFrameDescription(
         0.9,
         LOOP_ZERO,
         normalizedAngle(4 * ringPointAngle),
-        normalizedAngle(rootFrameData.frameAngle),
+        normalizedAngle(-4 * rootFrameData.frameAngle),
         0,
       ],
     ]
@@ -160,14 +160,13 @@ async function getLoopsoidFrameDescription(
     const ringPointOrientationAxis = normalizedVector(
       rotatedVector([0, 0, 1], ringPointAdjustedAngle, [1, 0, 0])
     )
-    for (let cellIndex = 0; cellIndex < loopsoidResolution; cellIndex++) {
+    for (let sliceIndex = 0; sliceIndex < loopsoidResolution; sliceIndex++) {
       const depthCellAngle =
-        211 * 2 * Math.PI * triangleSample(cellIndex * depthCellAngleStep) +
-        rootFrameData.frameAngle
+        2 * Math.PI * triangleSample(sliceIndex * depthCellAngleStep)
       const sliceCellAngle =
-        (Math.PI / ringPointRootWeight) *
-          loopsoidSine(cellIndex * sliceCellAngleStep) +
-        Math.PI
+        (Math.PI / ringPointRootWeight / 2) *
+          loopsoidSine(42 * sliceIndex * sliceCellAngleStep) +
+        Math.PI / ringPointRootWeight
       const cellBasePoint = sphericalToCartesian(
         loopsoidCosine,
         loopsoidSine,
@@ -196,7 +195,7 @@ async function getLoopsoidFrameDescription(
         cellOrientedPoint[1] + rootSlotAnchor[1],
         cellOrientedPoint[2] + rootSlotAnchor[2],
       ]
-      const cellSize = 0.3
+      const cellSize = 0.05
       const cellColor = 'white'
       slotCells.push([...cellTranslatedPoint, cellSize, cellColor])
       slotCells.push([
