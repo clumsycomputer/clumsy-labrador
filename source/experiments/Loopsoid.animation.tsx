@@ -104,6 +104,7 @@ async function getLoopsoidFrameDescription(
       rootFrameData.frameIndex
     ]
   )
+  const ringPhasedIntervals = spacerIntervals(ringPhasedSpacer)
   const ringCulledSpacer = culledSpacer(ringPhasedSpacer)
   const slotCells: Array<WorldCellPoint> = []
   for (let ringPoint of ringCulledSpacer[1]) {
@@ -164,13 +165,28 @@ async function getLoopsoidFrameDescription(
     const ringPointOrientationAxis = normalizedVector(
       rotatedVector([0, 0, 1], ringPointAdjustedAngle, [1, 0, 0])
     )
-    for (let loopPoint of ringPhasedSpacer[1]) {
+    for (
+      let loopPointIndex = 0;
+      loopPointIndex < ringPhasedSpacer[1].length;
+      loopPointIndex++
+    ) {
+      const loopPoint = ringPhasedSpacer[1][loopPointIndex]
+
       for (let cellIndex = 0; cellIndex < loopsoidResolution; cellIndex++) {
         const depthCellAngle =
           2 *
           Math.PI *
           triangleSample(loopsoidAngle(cellIndex * depthCellAngleStep))
-        const sliceCellAngle = (Math.PI / ringPhasedSpacer[0]) * loopPoint
+        const sliceCellAngle =
+          (Math.PI / ringPhasedSpacer[0]) *
+            loopPoint *
+            loopsoidSine(
+              ringPointRootWeight *
+                ringPhasedIntervals[loopPointIndex] *
+                cellIndex *
+                sliceCellAngleStep
+            ) +
+          (Math.PI / ringPhasedSpacer[0]) * loopPoint
         const cellBasePoint = sphericalToCartesian(
           loopsoidCosine,
           loopsoidSine,
