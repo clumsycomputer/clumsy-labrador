@@ -1,18 +1,28 @@
 import { AnimationModule } from 'clumsy-graphics'
-import { CellGraphic, WorldCellPoint } from '../library/CellGraphic'
-import React from 'react'
-import { sphericalToCartesian } from '../library/Point3'
-import { rotatedVector } from '../library/Vector3'
 import {
   AlignedSpacerStructure,
-  prime,
-  primeContainer,
+  LOOP_ONE,
+  LOOP_ZERO,
+  LoopStructure,
+  Spacer,
+  SpacerPoint,
+  SpacerSlotWeight,
+  loopCosine,
+  loopPoint,
+  loopSine,
+  phasedSpacer,
   spacer,
+  spacerGroup,
   spacerIntervals,
+  spacerLineage,
+  spacerSlotWeights,
   spacerSymmetricSlotWeights,
 } from 'clumsy-math'
+import React from 'react'
+import { CellGraphic, WorldCellPoint } from '../library/CellGraphic'
+import { Point3, reflectedPoint, sphericalToCartesian } from '../library/Point3'
+import { Vector3, normalizedVector, rotatedVector } from '../library/Vector3'
 import { normalizedAngle } from '../library/miscellaneous'
-import getColormap from 'colormap'
 
 const animationFrameCount = 64 * 4
 const animationFrameRate = 20
@@ -53,31 +63,154 @@ async function getLoopsoidFrameDescription(
     frameIndex: rootFrameData.frameIndex,
     subFrameCount: Math.floor(rootFrameData.frameCount / 2),
   })
-  const cameraDepth = -10
-  const loopsoidResolution = 2048
-  const loopsoidCellsA: Array<WorldCellPoint> = []
-  const depthCellAngleStep = Math.PI / loopsoidResolution
-  const sliceCellAngleStep = (2 * Math.PI) / loopsoidResolution
-  for (let cellIndex = 0; cellIndex < loopsoidResolution; cellIndex++) {
-    const depthCellAngle =
-      42 * 2 * Math.PI * triangleWave(cellIndex * depthCellAngleStep) +
-      rootFrameData.frameAngle
-    const sliceCellAngleA =
-      (Math.PI / 12) * Math.sin(cellIndex * sliceCellAngleStep) + Math.PI
-    const cellBasePointA = sphericalToCartesian(
-      Math.cos,
-      Math.sin,
-      Math.cos,
-      Math.sin,
-      [4, depthCellAngle, sliceCellAngleA]
+  const cameraDepth = -8
+  const rootResolution = 11
+  const rootAngleStep = (2 * Math.PI) / rootResolution
+  const rootRadius = 6
+  const rootWeights = spacerTerminalSlotWeights([rootResolution, [6, 0]])
+  const rootMaxWeight = rootWeights[0]
+  const ringSpacer = spacer([
+    rootResolution,
+    [
+      7,
+      spacerResolutionMap([rootFrameData.frameCount, [7, 0]])[
+        rootFrameData.frameIndex
+      ],
+    ],
+    [
+      5,
+      spacerResolutionMap([rootFrameData.frameCount, [5, 0]])[
+        rootFrameData.frameIndex
+      ],
+    ],
+    [
+      3,
+      spacerResolutionMap([rootFrameData.frameCount, [3, 0]])[
+        rootFrameData.frameIndex
+      ],
+    ],
+    [
+      2,
+      spacerResolutionMap([rootFrameData.frameCount, [2, 0]])[
+        rootFrameData.frameIndex
+      ],
+    ],
+  ])
+  const ringPhasedSpacer = phasedSpacer(
+    ringSpacer,
+    spacerResolutionMap([rootFrameData.frameCount, [ringSpacer[0], 0]])[
+      rootFrameData.frameIndex
+    ]
+  )
+  const ringCulledSpacer = culledSpacer(ringPhasedSpacer)
+  const slotCells: Array<WorldCellPoint> = []
+  for (let ringPoint of ringCulledSpacer[1]) {
+    const ringPointRootWeight = rootWeights[ringPoint]
+    const ringPointRootWeightStamp = ringPointRootWeight / rootMaxWeight
+    const ringPointAngle = ringPoint * rootAngleStep
+    const ringPointAdjustedAngle = ringPointAngle - Math.PI / 2
+    const ringPointOrigin: Point3 = [
+      rootRadius * Math.cos(ringPointAdjustedAngle),
+      rootRadius * Math.sin(ringPointAdjustedAngle),
+      0,
+    ]
+    const ringPointTarget: Point3 = [0, 0, 0]
+    const ringPointDeltas: Vector3 = [
+      ringPointTarget[0] - ringPointOrigin[0],
+      ringPointTarget[1] - ringPointOrigin[1],
+      ringPointTarget[2] - ringPointOrigin[2],
+    ]
+    const rootSlotAnchor: Point3 = [
+      ringPointRootWeightStamp * ringPointDeltas[0] + ringPointOrigin[0],
+      ringPointRootWeightStamp * ringPointDeltas[1] + ringPointOrigin[1],
+      ringPointRootWeightStamp * ringPointDeltas[2] + ringPointOrigin[2],
+    ]
+    const loopsoidResolution = 256
+    const loopsoidRadius =
+      (rootRadius / rootResolution) * ringPointRootWeightStamp * 2 + 2
+    const depthCellAngleStep = Math.PI / loopsoidResolution
+    const sliceCellAngleStep = (2 * Math.PI) / loopsoidResolution
+    const loopsoidLoopStructure: LoopStructure = [
+      [
+        0.975,
+        LOOP_ONE,
+        ringPointAngle,
+        normalizedAngle(-4 * rootFrameData.frameAngle),
+        0,
+      ],
+      [
+        0.95,
+        0.5,
+        normalizedAngle(-2 * ringPointAngle),
+        normalizedAngle(2 * rootFrameData.frameAngle),
+        0,
+      ],
+      [
+        0.9,
+        LOOP_ZERO,
+        normalizedAngle(4 * ringPointAngle),
+        normalizedAngle(rootFrameData.frameAngle),
+        0,
+      ],
+    ]
+    const loopsoidCosine = (inputAngle: number) =>
+      loopCosine(loopPoint(loopsoidLoopStructure, normalizedAngle(inputAngle)))
+    const loopsoidSine = (inputAngle: number) =>
+      loopSine(loopPoint(loopsoidLoopStructure, normalizedAngle(inputAngle)))
+    const ringPointOrientationAxis = normalizedVector(
+      rotatedVector([0, 0, 1], ringPointAdjustedAngle, [1, 0, 0])
     )
-    const cellOrientedPointA = rotatedVector(
-      [1, 0, 0],
-      rootFrameData.frameAngle,
-      cellBasePointA
-    )
-    const cellColor = 'white'
-    loopsoidCellsA.push([...cellOrientedPointA, 0.075, cellColor])
+    for (let cellIndex = 0; cellIndex < loopsoidResolution; cellIndex++) {
+      const depthCellAngle =
+        211 * 2 * Math.PI * triangleSample(cellIndex * depthCellAngleStep) +
+        rootFrameData.frameAngle
+      const sliceCellAngle =
+        (Math.PI / ringPointRootWeight) *
+          loopsoidSine(cellIndex * sliceCellAngleStep) +
+        Math.PI
+      const cellBasePoint = sphericalToCartesian(
+        loopsoidCosine,
+        loopsoidSine,
+        loopsoidCosine,
+        loopsoidSine,
+        [loopsoidRadius, depthCellAngle, sliceCellAngle]
+      )
+      //   const cellOrientedPoint = rotatedVector(
+      //     [1, 0, 0],
+      //     rootFrameData.frameAngle,
+      //     cellBasePoint
+      //   )
+      const cellOrientedPoint = rotatedVector(
+        ringPointOrientationAxis,
+        Math.atan2(
+          Math.sqrt(
+            ringPointOrigin[0] * ringPointOrigin[0] +
+              ringPointOrigin[1] * ringPointOrigin[1]
+          ),
+          cameraDepth
+        ) + rootFrameData.frameAngle,
+        cellBasePoint
+      )
+      const cellTranslatedPoint: Point3 = [
+        cellOrientedPoint[0] + rootSlotAnchor[0],
+        cellOrientedPoint[1] + rootSlotAnchor[1],
+        cellOrientedPoint[2] + rootSlotAnchor[2],
+      ]
+      const cellSize = 0.3
+      const cellColor = 'white'
+      slotCells.push([...cellTranslatedPoint, cellSize, cellColor])
+      slotCells.push([
+        ...reflectedPoint(
+          [
+            [0, 0, cellTranslatedPoint[2]],
+            [0, 1, cellTranslatedPoint[2]],
+          ],
+          cellTranslatedPoint
+        ),
+        cellSize,
+        cellColor,
+      ])
+    }
   }
   return (
     <CellGraphic
@@ -87,7 +220,7 @@ async function getLoopsoidFrameDescription(
       perspectiveDepthNear={0.1}
       perspectiveVerticalFieldOfViewAngle={(1.75 / 3) * Math.PI}
       backgroundColor={'black'}
-      worldCellPoints={loopsoidCellsA}
+      worldCellPoints={slotCells}
     />
   )
 }
@@ -108,13 +241,13 @@ function getFrameData(api: GetFrameDataApi) {
   }
 }
 
-interface GetrootFrameDatapi {
+interface GetSubFrameDataApi {
   frameCount: number
   frameIndex: number
   subFrameCount: number
 }
 
-function getSubFrameData(api: GetrootFrameDatapi) {
+function getSubFrameData(api: GetSubFrameDataApi) {
   const { frameCount, subFrameCount, frameIndex } = api
   const subFrameIndex = spacerResolutionMap([frameCount, [subFrameCount, 0]])[
     frameIndex
@@ -143,7 +276,41 @@ function spacerResolutionMap(
   )
 }
 
-function triangleWave(inputAngle: number): number {
+function spacerTerminalSlotWeights(
+  someAlignedStructure: AlignedSpacerStructure
+): Array<SpacerSlotWeight> {
+  const depthLineage = spacerLineage(someAlignedStructure)
+  const depthTerminalGroup = spacerGroup(depthLineage[depthLineage.length - 1])
+  const depthTerminalSpacers = depthTerminalGroup.map((someTerminalStructure) =>
+    spacer(someTerminalStructure)
+  )
+  return spacerSlotWeights(depthTerminalSpacers)
+}
+
+function culledSpacer(someSpacer: Spacer): Spacer {
+  return [
+    someSpacer[0],
+    Array.from(
+      someSpacer[1].reduce<Set<SpacerPoint>>(
+        (resultPointSet, someSpacerPoint) => {
+          const pointZeroDistance = someSpacerPoint
+          const pointResolutionDistance = someSpacer[0] - someSpacerPoint
+          const mirrorPoint =
+            pointZeroDistance <= pointResolutionDistance
+              ? (someSpacer[0] - pointZeroDistance) % someSpacer[0]
+              : pointResolutionDistance
+          if (!resultPointSet.has(mirrorPoint)) {
+            resultPointSet.add(someSpacerPoint)
+          }
+          return resultPointSet
+        },
+        new Set<SpacerPoint>()
+      )
+    ),
+  ]
+}
+
+function triangleSample(inputAngle: number): number {
   const periodStamp = inputAngle / Math.PI
   return 2 * Math.abs(periodStamp - Math.floor(periodStamp + 0.5))
 }
