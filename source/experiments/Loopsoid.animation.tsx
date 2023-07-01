@@ -3,6 +3,7 @@ import {
   AlignedSpacerStructure,
   LOOP_ONE,
   LOOP_ZERO,
+  LoopPoint,
   LoopStructure,
   Spacer,
   SpacerPoint,
@@ -11,6 +12,7 @@ import {
   loopPoint,
   loopSine,
   phasedSpacer,
+  primeContainer,
   spacer,
   spacerGroup,
   spacerIntervals,
@@ -35,8 +37,8 @@ const LoopsoidAnimationModule: AnimationModule = {
   getFrameDescription: getLoopsoidFrameDescription,
   frameCount: clipFrameCount,
   frameSize: {
-    width: 1024 * 1,
-    height: 1024 * 1,
+    width: 1024 * 2,
+    height: 1024 * 2,
   },
   animationSettings: {
     frameRate: animationFrameRate,
@@ -125,7 +127,7 @@ async function getLoopsoidFrameDescription(
       ringPointRootWeightStamp * ringPointDeltas[1] + ringPointOrigin[1],
       ringPointRootWeightStamp * ringPointDeltas[2] + ringPointOrigin[2],
     ]
-    const loopsoidResolution = 512
+    const loopsoidResolution = 1024
     const loopsoidRadius =
       (rootRadius / rootResolution) * ringPointRootWeightStamp * 2 + 2
     const depthCellAngleStep = Math.PI / loopsoidResolution
@@ -153,19 +155,23 @@ async function getLoopsoidFrameDescription(
         0,
       ],
     ]
+    const loopsoidAngle = (inputAngle: number) =>
+      loopAngle(loopPoint(loopsoidLoopStructure, normalizedAngle(inputAngle)))
     const loopsoidCosine = (inputAngle: number) =>
-      loopCosine(loopPoint(loopsoidLoopStructure, normalizedAngle(inputAngle)))
+      loopCosine(loopPoint(loopsoidLoopStructure, loopsoidAngle(inputAngle)))
     const loopsoidSine = (inputAngle: number) =>
-      loopSine(loopPoint(loopsoidLoopStructure, normalizedAngle(inputAngle)))
+      loopSine(loopPoint(loopsoidLoopStructure, loopsoidAngle(inputAngle)))
     const ringPointOrientationAxis = normalizedVector(
       rotatedVector([0, 0, 1], ringPointAdjustedAngle, [1, 0, 0])
     )
     for (let sliceIndex = 0; sliceIndex < loopsoidResolution; sliceIndex++) {
       const depthCellAngle =
-        2 * Math.PI * triangleSample(sliceIndex * depthCellAngleStep)
+        2 *
+        Math.PI *
+        triangleSample(loopsoidAngle(sliceIndex * depthCellAngleStep))
       const sliceCellAngle =
         (Math.PI / ringPointRootWeight / 2) *
-          loopsoidSine(42 * sliceIndex * sliceCellAngleStep) +
+          Math.sin(42 * 2 * sliceIndex * sliceCellAngleStep) +
         Math.PI / ringPointRootWeight
       const cellBasePoint = sphericalToCartesian(
         loopsoidCosine,
@@ -174,11 +180,6 @@ async function getLoopsoidFrameDescription(
         loopsoidSine,
         [loopsoidRadius, depthCellAngle, sliceCellAngle]
       )
-      //   const cellOrientedPoint = rotatedVector(
-      //     [1, 0, 0],
-      //     rootFrameData.frameAngle,
-      //     cellBasePoint
-      //   )
       const cellOrientedPoint = rotatedVector(
         ringPointOrientationAxis,
         Math.atan2(
@@ -187,7 +188,10 @@ async function getLoopsoidFrameDescription(
               ringPointOrigin[1] * ringPointOrigin[1]
           ),
           cameraDepth
-        ) + rootFrameData.frameAngle,
+        ) +
+          loopsoidAngle(
+            rootFrameData.frameAngle + Math.PI / ringPointRootWeight
+          ),
         cellBasePoint
       )
       const cellTranslatedPoint: Point3 = [
@@ -195,7 +199,11 @@ async function getLoopsoidFrameDescription(
         cellOrientedPoint[1] + rootSlotAnchor[1],
         cellOrientedPoint[2] + rootSlotAnchor[2],
       ]
-      const cellSize = 0.05
+      const cellDistance = Math.sqrt(
+        cellTranslatedPoint[0] * cellTranslatedPoint[0] +
+          cellTranslatedPoint[1] * cellTranslatedPoint[1]
+      )
+      const cellSize = rangeScopeValue(0.05, 1, 0.5, cellDistance / rootRadius)
       const cellColor = 'white'
       slotCells.push([...cellTranslatedPoint, cellSize, cellColor])
       slotCells.push([
@@ -323,5 +331,14 @@ function rangeScopeValue(
   return (
     rangeStamp * (rangeScope / rangeResolution) * rangeScalar +
     ((rangeResolution - rangeScope) / rangeResolution) * rangeScalar
+  )
+}
+
+function loopAngle(someLoopPoint: LoopPoint) {
+  return normalizedAngle(
+    Math.atan2(
+      someLoopPoint[1] - someLoopPoint[7],
+      someLoopPoint[0] - someLoopPoint[6]
+    )
   )
 }
