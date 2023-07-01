@@ -37,8 +37,8 @@ const LoopsoidAnimationModule: AnimationModule = {
   getFrameDescription: getLoopsoidFrameDescription,
   frameCount: clipFrameCount,
   frameSize: {
-    width: 1024 * 2,
-    height: 1024 * 2,
+    width: 1024 * 1,
+    height: 1024 * 1,
   },
   animationSettings: {
     frameRate: animationFrameRate,
@@ -164,61 +164,63 @@ async function getLoopsoidFrameDescription(
     const ringPointOrientationAxis = normalizedVector(
       rotatedVector([0, 0, 1], ringPointAdjustedAngle, [1, 0, 0])
     )
-    for (let sliceIndex = 0; sliceIndex < loopsoidResolution; sliceIndex++) {
-      const depthCellAngle =
-        2 *
-        Math.PI *
-        triangleSample(loopsoidAngle(sliceIndex * depthCellAngleStep))
-      const sliceCellAngle =
-        (Math.PI / ringPointRootWeight / 2) *
-          Math.sin(42 * 2 * sliceIndex * sliceCellAngleStep) +
-        Math.PI / ringPointRootWeight
-      const cellBasePoint = sphericalToCartesian(
-        loopsoidCosine,
-        loopsoidSine,
-        loopsoidCosine,
-        loopsoidSine,
-        [loopsoidRadius, depthCellAngle, sliceCellAngle]
-      )
-      const cellOrientedPoint = rotatedVector(
-        ringPointOrientationAxis,
-        Math.atan2(
-          Math.sqrt(
-            ringPointOrigin[0] * ringPointOrigin[0] +
-              ringPointOrigin[1] * ringPointOrigin[1]
+    for (let loopPoint of ringPhasedSpacer[1]) {
+      for (let cellIndex = 0; cellIndex < loopsoidResolution; cellIndex++) {
+        const depthCellAngle =
+          2 *
+          Math.PI *
+          triangleSample(loopsoidAngle(cellIndex * depthCellAngleStep))
+        const sliceCellAngle = (Math.PI / ringPhasedSpacer[0]) * loopPoint
+        const cellBasePoint = sphericalToCartesian(
+          loopsoidCosine,
+          loopsoidSine,
+          loopsoidCosine,
+          loopsoidSine,
+          [loopsoidRadius, depthCellAngle, sliceCellAngle]
+        )
+        const cellOrientedPoint = rotatedVector(
+          ringPointOrientationAxis,
+          Math.atan2(
+            Math.sqrt(
+              ringPointOrigin[0] * ringPointOrigin[0] +
+                ringPointOrigin[1] * ringPointOrigin[1]
+            ),
+            cameraDepth
+          ) + loopsoidAngle(rootFrameData.frameAngle),
+          cellBasePoint
+        )
+        const cellTranslatedPoint: Point3 = [
+          cellOrientedPoint[0] + rootSlotAnchor[0],
+          cellOrientedPoint[1] + rootSlotAnchor[1],
+          cellOrientedPoint[2] + rootSlotAnchor[2],
+        ]
+        const cellDistance = Math.sqrt(
+          cellTranslatedPoint[0] * cellTranslatedPoint[0] +
+            cellTranslatedPoint[1] * cellTranslatedPoint[1]
+        )
+        const cellSize = rangeScopeValue(
+          0.05,
+          1,
+          0.5,
+          cellDistance / rootRadius
+        )
+        const cellColor = 'white'
+        slotCells.push([...cellTranslatedPoint, cellSize, cellColor])
+        slotCells.push([
+          ...reflectedPoint(
+            [
+              [0, 0, cellTranslatedPoint[2]],
+              [0, 1, cellTranslatedPoint[2]],
+            ],
+            cellTranslatedPoint
           ),
-          cameraDepth
-        ) +
-          loopsoidAngle(
-            rootFrameData.frameAngle + Math.PI / ringPointRootWeight
-          ),
-        cellBasePoint
-      )
-      const cellTranslatedPoint: Point3 = [
-        cellOrientedPoint[0] + rootSlotAnchor[0],
-        cellOrientedPoint[1] + rootSlotAnchor[1],
-        cellOrientedPoint[2] + rootSlotAnchor[2],
-      ]
-      const cellDistance = Math.sqrt(
-        cellTranslatedPoint[0] * cellTranslatedPoint[0] +
-          cellTranslatedPoint[1] * cellTranslatedPoint[1]
-      )
-      const cellSize = rangeScopeValue(0.05, 1, 0.5, cellDistance / rootRadius)
-      const cellColor = 'white'
-      slotCells.push([...cellTranslatedPoint, cellSize, cellColor])
-      slotCells.push([
-        ...reflectedPoint(
-          [
-            [0, 0, cellTranslatedPoint[2]],
-            [0, 1, cellTranslatedPoint[2]],
-          ],
-          cellTranslatedPoint
-        ),
-        cellSize,
-        cellColor,
-      ])
+          cellSize,
+          cellColor,
+        ])
+      }
     }
   }
+
   return (
     <CellGraphic
       cameraDepth={cameraDepth}
