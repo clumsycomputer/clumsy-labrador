@@ -171,7 +171,6 @@ async function getLoopsoidFrameDescription(
       loopPointIndex++
     ) {
       const loopPoint = ringPhasedSpacer[1][loopPointIndex]
-
       for (let cellIndex = 0; cellIndex < loopsoidResolution; cellIndex++) {
         const depthCellAngle =
           2 *
@@ -215,9 +214,9 @@ async function getLoopsoidFrameDescription(
             cellTranslatedPoint[1] * cellTranslatedPoint[1]
         )
         const cellSize = rangeScopeValue(
-          0.05,
+          0.04,
           1,
-          0.5,
+          0.125,
           cellDistance / rootRadius
         )
         const cellColor = 'white'
