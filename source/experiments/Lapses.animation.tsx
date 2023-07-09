@@ -8,6 +8,7 @@ import {
   SpacerPoint,
   SpacerSlotWeight,
   loopCosine,
+  loopPendulum,
   loopPoint,
   loopSine,
   spacer,
@@ -59,9 +60,9 @@ async function getLapsesFrameDescription(
   })
   const cameraDepth = -8
   const loopsoidLoopStructure: LoopStructure = [
-    [0.975, LOOP_ONE, 0, normalizedAngle(rootFrameData.frameAngle), 0],
+    [0.975, LOOP_ZERO, 0, 0, 0],
     [0.95, 0.5, 0, 0, 0],
-    [0.9, LOOP_ZERO, 0, 0, 0],
+    [0.9, LOOP_ONE, 0, 0, 0],
   ]
   const loopsoidAngle = (inputAngle: number) =>
     loopAngle(loopPoint(loopsoidLoopStructure, normalizedAngle(inputAngle)))
@@ -69,16 +70,18 @@ async function getLapsesFrameDescription(
     loopCosine(loopPoint(loopsoidLoopStructure, loopsoidAngle(inputAngle)))
   const loopsoidSine = (inputAngle: number) =>
     loopSine(loopPoint(loopsoidLoopStructure, loopsoidAngle(inputAngle)))
-  const loopsoidResolution = 1024
-  const depthCellAngleRange = Math.PI
+  const loopsoidResolution = 256
+  const depthCellAngleRange = 2 * Math.PI
   const depthCellAngleStep = depthCellAngleRange / loopsoidResolution
   const sliceCellAngleStep = (2 * Math.PI) / loopsoidResolution
+  const sliceRadiusAngleStep = (2 * Math.PI) / loopsoidResolution
   const cellPointsA: Array<WorldCellPoint> = []
   for (let cellIndex = 0; cellIndex < loopsoidResolution; cellIndex++) {
     const depthCellAngle =
       2 * Math.PI * triangleSample(cellIndex * depthCellAngleStep)
     const sliceAngleOrigin = rootFrameData.frameAngle
-    const sliceCellAngleDelta = Math.PI * rootFrameData.frameStamp
+    const sliceCellAngleDelta =
+      (Math.PI / 3) * loopsoidCosine(rootFrameData.frameAngle)
     const sliceCellAngleA = sliceAngleOrigin + sliceCellAngleDelta
     const sliceCellAngleB = sliceAngleOrigin - sliceCellAngleDelta
     const sliceCellBasePointA = sphericalToCartesian(
@@ -96,29 +99,21 @@ async function getLapsesFrameDescription(
       [4, depthCellAngle, sliceCellAngleB]
     )
     const sliceCellOrientedPointA = rotatedVector(
-      normalizedVector([1, 0, 0]),
+      normalizedVector(
+        rotatedVector(sliceCellBasePointA, rootFrameData.frameAngle, [1, 0, 0])
+      ),
       rootFrameData.frameAngle,
       sliceCellBasePointA
     )
     const sliceCellOrientedPointB = rotatedVector(
-      normalizedVector([1, 0, 0]),
+      normalizedVector(
+        rotatedVector(sliceCellBasePointB, rootFrameData.frameAngle, [1, 0, 0])
+      ),
       rootFrameData.frameAngle,
       sliceCellBasePointB
     )
-    // const sliceCellOrientedPointC = rotatedVector(
-    //   normalizedVector([0, 1, 0]),
-    //   rootFrameData.frameAngle,
-    //   sliceCellBasePointA
-    // )
-    // const sliceCellOrientedPointD = rotatedVector(
-    //   normalizedVector([0, 1, 0]),
-    //   rootFrameData.frameAngle,
-    //   sliceCellBasePointB
-    // )
     cellPointsA.push([...sliceCellOrientedPointA, 0.1, 'white'])
     cellPointsA.push([...sliceCellOrientedPointB, 0.1, 'white'])
-    // cellPointsA.push([...sliceCellOrientedPointC, 0.1, 'white'])
-    // cellPointsA.push([...sliceCellOrientedPointD, 0.1, 'white'])
   }
   return (
     <CellGraphic
