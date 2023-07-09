@@ -24,7 +24,7 @@ import React from 'react'
 import { sphericalToCartesian } from '../library/Point3'
 import { normalizedVector, rotatedVector } from '../library/Vector3'
 
-const animationFrameCount = 64 * 2
+const animationFrameCount = 64 * 8
 const animationFrameRate = 20
 const clipStartFrameIndex = 64 * 0
 const clipFinishFrameIndex = animationFrameCount
@@ -35,8 +35,8 @@ const LapsesAnimationModule: AnimationModule = {
   getFrameDescription: getLapsesFrameDescription,
   frameCount: clipFrameCount,
   frameSize: {
-    width: 1024 * 1,
-    height: 1024 * 1,
+    width: 1024 * 4,
+    height: 1024 * 4,
   },
   animationSettings: {
     frameRate: animationFrameRate,
@@ -59,62 +59,42 @@ async function getLapsesFrameDescription(
     frameIndex: clipStartFrameIndex + props.frameIndex,
   })
   const cameraDepth = -8
-  const loopsoidLoopStructure: LoopStructure = [
-    [0.975, LOOP_ZERO, 0, 0, 0],
-    [0.95, 0.5, 0, 0, 0],
-    [0.9, LOOP_ONE, 0, 0, 0],
-  ]
-  const loopsoidAngle = (inputAngle: number) =>
-    loopAngle(loopPoint(loopsoidLoopStructure, normalizedAngle(inputAngle)))
-  const loopsoidCosine = (inputAngle: number) =>
-    loopCosine(loopPoint(loopsoidLoopStructure, loopsoidAngle(inputAngle)))
-  const loopsoidSine = (inputAngle: number) =>
-    loopSine(loopPoint(loopsoidLoopStructure, loopsoidAngle(inputAngle)))
-  const loopsoidResolution = 256
-  const depthCellAngleRange = 2 * Math.PI
-  const depthCellAngleStep = depthCellAngleRange / loopsoidResolution
-  const sliceCellAngleStep = (2 * Math.PI) / loopsoidResolution
-  const sliceRadiusAngleStep = (2 * Math.PI) / loopsoidResolution
-  const cellPointsA: Array<WorldCellPoint> = []
-  for (let cellIndex = 0; cellIndex < loopsoidResolution; cellIndex++) {
-    const depthCellAngle =
-      2 * Math.PI * triangleSample(cellIndex * depthCellAngleStep)
-    const sliceAngleOrigin = rootFrameData.frameAngle
-    const sliceCellAngleDelta =
-      (Math.PI / 3) * loopsoidCosine(rootFrameData.frameAngle)
-    const sliceCellAngleA = sliceAngleOrigin + sliceCellAngleDelta
-    const sliceCellAngleB = sliceAngleOrigin - sliceCellAngleDelta
-    const sliceCellBasePointA = sphericalToCartesian(
-      loopsoidCosine,
-      loopsoidSine,
-      loopsoidCosine,
-      loopsoidSine,
-      [4, depthCellAngle, sliceCellAngleA]
-    )
-    const sliceCellBasePointB = sphericalToCartesian(
-      loopsoidCosine,
-      loopsoidSine,
-      loopsoidCosine,
-      loopsoidSine,
-      [4, depthCellAngle, sliceCellAngleB]
-    )
-    const sliceCellOrientedPointA = rotatedVector(
-      normalizedVector(
-        rotatedVector(sliceCellBasePointA, rootFrameData.frameAngle, [1, 0, 0])
-      ),
-      rootFrameData.frameAngle,
-      sliceCellBasePointA
-    )
-    const sliceCellOrientedPointB = rotatedVector(
-      normalizedVector(
-        rotatedVector(sliceCellBasePointB, rootFrameData.frameAngle, [1, 0, 0])
-      ),
-      rootFrameData.frameAngle,
-      sliceCellBasePointB
-    )
-    cellPointsA.push([...sliceCellOrientedPointA, 0.1, 'white'])
-    cellPointsA.push([...sliceCellOrientedPointB, 0.1, 'white'])
-  }
+  //   const contortionCellsA = getContortionCells({
+  //     frameAngle: rootFrameData.frameAngle,
+  //     sliceRangeAngle: Math.PI / 3,
+  //     cellSize: 0.35,
+  //     loopsoidRadius: 4,
+  //     loopsoidResolution: 256,
+  //     loopsoidLoopStructure: [
+  //       [0.975, LOOP_ZERO, 0, 0, 0],
+  //       [0.95, 0.5, 0, 0, 0],
+  //       [0.9, LOOP_ONE, 0, 0, 0],
+  //     ],
+  //   })
+  const contortionCellsB = getContortionCells({
+    frameAngle: rootFrameData.frameAngle,
+    sliceRangeAngle: Math.PI / 3,
+    cellSize: 0.35,
+    loopsoidRadius: 4,
+    loopsoidResolution: 256,
+    loopsoidLoopStructure: [
+      [0.975, LOOP_ZERO, Math.PI / 3, rootFrameData.frameAngle, 0],
+      [
+        0.95,
+        0.5,
+        Math.PI / 5,
+        normalizedAngle(-2 * rootFrameData.frameAngle),
+        0,
+      ],
+      [
+        0.9,
+        LOOP_ONE,
+        Math.PI / 6,
+        normalizedAngle(4 * rootFrameData.frameAngle),
+        0,
+      ],
+    ],
+  })
   return (
     <CellGraphic
       cameraDepth={cameraDepth}
@@ -123,7 +103,10 @@ async function getLapsesFrameDescription(
       perspectiveDepthNear={0.1}
       perspectiveVerticalFieldOfViewAngle={(1.75 / 3) * Math.PI}
       backgroundColor={'black'}
-      worldCellPoints={cellPointsA}
+      worldCellPoints={[
+        // ...contortionCellsA,
+        ...contortionCellsB,
+      ]}
     />
   )
 }
@@ -179,40 +162,6 @@ function spacerResolutionMap(
   )
 }
 
-function spacerTerminalSlotWeights(
-  someAlignedStructure: AlignedSpacerStructure
-): Array<SpacerSlotWeight> {
-  const depthLineage = spacerLineage(someAlignedStructure)
-  const depthTerminalGroup = spacerGroup(depthLineage[depthLineage.length - 1])
-  const depthTerminalSpacers = depthTerminalGroup.map((someTerminalStructure) =>
-    spacer(someTerminalStructure)
-  )
-  return spacerSlotWeights(depthTerminalSpacers)
-}
-
-function culledSpacer(someSpacer: Spacer): Spacer {
-  return [
-    someSpacer[0],
-    Array.from(
-      someSpacer[1].reduce<Set<SpacerPoint>>(
-        (resultPointSet, someSpacerPoint) => {
-          const pointZeroDistance = someSpacerPoint
-          const pointResolutionDistance = someSpacer[0] - someSpacerPoint
-          const mirrorPoint =
-            pointZeroDistance <= pointResolutionDistance
-              ? (someSpacer[0] - pointZeroDistance) % someSpacer[0]
-              : pointResolutionDistance
-          if (!resultPointSet.has(mirrorPoint)) {
-            resultPointSet.add(someSpacerPoint)
-          }
-          return resultPointSet
-        },
-        new Set<SpacerPoint>()
-      )
-    ),
-  ]
-}
-
 function triangleSample(inputAngle: number): number {
   const periodStamp = inputAngle / Math.PI
   return 2 * Math.abs(periodStamp - Math.floor(periodStamp + 0.5))
@@ -237,4 +186,84 @@ function loopAngle(someLoopPoint: LoopPoint) {
       someLoopPoint[0] - someLoopPoint[6]
     )
   )
+}
+
+interface GetContortionCellsApi {
+  frameAngle: number
+  sliceRangeAngle: number
+  loopsoidResolution: number
+  loopsoidRadius: number
+  loopsoidLoopStructure: LoopStructure
+  cellSize: number
+}
+
+function getContortionCells(api: GetContortionCellsApi) {
+  const {
+    loopsoidResolution,
+    loopsoidRadius,
+    loopsoidLoopStructure,
+    frameAngle,
+    cellSize,
+    sliceRangeAngle,
+  } = api
+  const resultCells: Array<WorldCellPoint> = []
+  const depthCellAngleRange = 2 * Math.PI
+  const depthCellAngleStep = depthCellAngleRange / loopsoidResolution
+  const sliceCellAngleStep = (2 * Math.PI) / loopsoidResolution
+  const sliceRadiusAngleStep = (2 * Math.PI) / loopsoidResolution
+  const loopsoidAngle = (inputAngle: number) =>
+    loopAngle(loopPoint(loopsoidLoopStructure, normalizedAngle(inputAngle)))
+  const loopsoidCosine = (inputAngle: number) =>
+    loopCosine(loopPoint(loopsoidLoopStructure, loopsoidAngle(inputAngle)))
+  const loopsoidSine = (inputAngle: number) =>
+    loopSine(loopPoint(loopsoidLoopStructure, loopsoidAngle(inputAngle)))
+  for (let cellIndex = 0; cellIndex < loopsoidResolution; cellIndex++) {
+    const depthCellAngle =
+      2 * Math.PI * triangleSample(cellIndex * depthCellAngleStep)
+    const sliceAngleOrigin = frameAngle
+    const sliceCellAngleDelta = sliceRangeAngle * loopsoidCosine(frameAngle)
+    const sliceCellAngleA = sliceAngleOrigin + sliceCellAngleDelta
+    const sliceCellAngleB = sliceAngleOrigin - sliceCellAngleDelta
+    const sliceCellBasePointA = sphericalToCartesian(
+      loopsoidCosine,
+      loopsoidSine,
+      loopsoidCosine,
+      loopsoidSine,
+      [loopsoidRadius, depthCellAngle, sliceCellAngleA]
+    )
+    const sliceCellBasePointB = sphericalToCartesian(
+      loopsoidCosine,
+      loopsoidSine,
+      loopsoidCosine,
+      loopsoidSine,
+      [loopsoidRadius, depthCellAngle, sliceCellAngleB]
+    )
+    const sliceCellOrientedPointA = rotatedVector(
+      normalizedVector(
+        rotatedVector(sliceCellBasePointA, frameAngle, [1, 0, 0])
+      ),
+      frameAngle,
+      sliceCellBasePointA
+    )
+    const sliceCellOrientedPointB = rotatedVector(
+      normalizedVector(
+        rotatedVector(sliceCellBasePointB, frameAngle, [1, 0, 0])
+      ),
+      frameAngle,
+      sliceCellBasePointB
+    )
+    const sliceCellRotatedPointA = rotatedVector(
+      normalizedVector([Math.cos(frameAngle), Math.sin(frameAngle), 0]),
+      frameAngle,
+      sliceCellOrientedPointA
+    )
+    const sliceCellRotatedPointB = rotatedVector(
+      normalizedVector([Math.cos(frameAngle), Math.sin(frameAngle), 0]),
+      frameAngle,
+      sliceCellOrientedPointB
+    )
+    resultCells.push([...sliceCellRotatedPointA, cellSize, 'white'])
+    resultCells.push([...sliceCellRotatedPointB, cellSize, 'white'])
+  }
+  return resultCells
 }
